@@ -12,7 +12,7 @@ public class Chess {
     public static final int WHITE = 0;
     public static final int BLACK = 1;
     public static final int KINGSIDE = 0;
-    public static final int QUEENSIDE = 0;
+    public static final int QUEENSIDE = 1;
     public static final long A_FILE = 72340172838076673l;
     public static final long B_FILE = 144680345676153346l;
     public static final long C_FILE = 289360691352306692l;
@@ -21,14 +21,14 @@ public class Chess {
     public static final long F_FILE = 2314885530818453536l;
     public static final long G_FILE = 4629771061636907072l;
     public static final long H_FILE = -9187201950435737472l;
-    public static final long ROW_1 = 255l;
-    public static final long ROW_2 = 65280l;
-    public static final long ROW_3 = 16711680l;
-    public static final long ROW_4 = 4278190080l;
-    public static final long ROW_5 = 1095216660480l;
-    public static final long ROW_6 = 280375465082880l;
-    public static final long ROW_7 = 71776119061217280l;
-    public static final long ROW_8 = -72057594037927936l;
+    public static final long RANK_1 = 255l;
+    public static final long RANK_2 = 65280l;
+    public static final long RANK_3 = 16711680l;
+    public static final long RANK_4 = 4278190080l;
+    public static final long RANK_5 = 1095216660480l;
+    public static final long RANK_6 = 280375465082880l;
+    public static final long RANK_7 = 71776119061217280l;
+    public static final long RANK_8 = -72057594037927936l;
     public static final byte FLAG_EMPTY = 0;
     public static final byte FLAG_CASTLE = 1;
     public static final byte FLAG_EN_PASSANT = 2;
@@ -39,8 +39,9 @@ public class Chess {
     public static final long[] FILES = new long[] { A_FILE, B_FILE, C_FILE, D_FILE, E_FILE, F_FILE, G_FILE, H_FILE };
     public static final long[] FILES_REVERSED = new long[] { H_FILE, G_FILE, F_FILE, E_FILE, D_FILE, C_FILE, B_FILE,
             A_FILE };
-    public static final long[] ROWS = new long[] { ROW_1, ROW_2, ROW_3, ROW_4, ROW_5, ROW_6, ROW_7, ROW_8 };
-    public static final long[] ROWS_REVERSED = new long[] { ROW_8, ROW_7, ROW_6, ROW_5, ROW_4, ROW_3, ROW_2, ROW_1 };
+    public static final long[] RANKS = new long[] { RANK_1, RANK_2, RANK_3, RANK_4, RANK_5, RANK_6, RANK_7, RANK_8 };
+    public static final long[] RANKS_REVERSED = new long[] { RANK_8, RANK_7, RANK_6, RANK_5, RANK_4, RANK_3, RANK_2,
+            RANK_1 };
     public static final char[][] PIECE_CHARS = new char[][] { { '♛', '♞', '♝', '♜', '♚', '♟', ' ' },
             { '♕', '♘', '♗', '♖', '♔', '♙', '⚠' } }; // All empty squares will be white, ⚠ should never print
     public static final int[] COLORS = new int[] { WHITE, BLACK };
@@ -90,13 +91,13 @@ public class Chess {
     public void print() {
         boolean flag = false;
         System.out.print("\r\n╻⎯⎯⎯╻⎯⎯⎯╻⎯⎯⎯╻⎯⎯⎯╻⎯⎯⎯╻⎯⎯⎯╻⎯⎯⎯╻⎯⎯⎯╻\r\n│");
-        for (long row : ROWS_REVERSED) {
+        for (long rank : RANKS_REVERSED) {
             if (flag) {
                 System.out.print("\r\n│⎯⎯⎯│⎯⎯⎯│⎯⎯⎯│⎯⎯⎯│⎯⎯⎯│⎯⎯⎯│⎯⎯⎯│⎯⎯⎯│\r\n│");
             }
             flag = true;
             foundPiece: for (long file : FILES) {
-                long square = row & file;
+                long square = rank & file;
                 for (int color : COLORS) {
                     for (int piece : PIECES) {
                         if ((pieceBoards[color][piece] & square) == square) {
@@ -127,7 +128,7 @@ public class Chess {
             add(start, startColor, promotion);
             move(start, end);
             enPassantSquare = 0l;
-            halfMoveCount = 0;
+            halfMoveCount = -1;
         }
         if (flag == FLAG_EN_PASSANT) {
             long captureSquare = Chess.pushDown(end, end - start > 0 ? 1 : -1);
@@ -136,11 +137,29 @@ public class Chess {
             remove(captureSquare, captureColor, capturePiece);
             move(start, end);
             enPassantSquare = 0l;
-            halfMoveCount = 0;
+            halfMoveCount = -1;
+        }
+        if (flag == FLAG_CASTLE) {
+            long mainStartSquare = start;
+            long helperStartSquare = end;
+            long rank = (startColor == BLACK) ? RANK_8 : RANK_1;
+            long mainEndSquare = -1;
+            long helperEndSquare = -1;
+            if (getFileIndex(end) - getFileIndex(start) > 0) {// kingside castle if castling to the left
+                mainEndSquare = rank & G_FILE;
+                helperEndSquare = rank & F_FILE;
+            } else {
+                mainEndSquare = rank & C_FILE;
+                helperEndSquare = rank & D_FILE;
+            }
+            move(mainStartSquare, mainEndSquare);
+            move(helperStartSquare, helperEndSquare);
+            enPassantSquare = 0l;
         }
         if (turn == BLACK) {
-            fullMoveCount++;
+            fullMoveCount += 1;
         }
+        halfMoveCount += 1;
         this.turn ^= 1;
         updateLegalMoves();
     }
@@ -152,12 +171,10 @@ public class Chess {
     public void move(long start, long end) {
         int startPiece = getPiece(start);
         int endPiece = getPiece(end);
-        print(end);
         int startColor = ((combinedBoards[BLACK] & start) == start) ? BLACK : WHITE;
         int endColor = ((combinedBoards[BLACK] & end) == end) ? BLACK : WHITE;
         remove(start, startColor, startPiece);
         remove(end, endColor, endPiece);
-        add(start, WHITE, EMPTY);
         add(end, startColor, startPiece);
     }
 
@@ -188,6 +205,7 @@ public class Chess {
         pieceBoards[color][piece] |= square;
         if (piece != EMPTY) {
             combinedBoards[color] |= square;
+            pieceBoards[WHITE][EMPTY] &= ~square;
         }
     }
 
@@ -195,6 +213,7 @@ public class Chess {
         pieceBoards[color][piece] &= ~square;
         if (piece != EMPTY) {
             combinedBoards[color] &= ~square;
+            pieceBoards[WHITE][EMPTY] |= square;
         }
     }
 
@@ -238,7 +257,17 @@ public class Chess {
     public byte getFlag(short move) {
         return (byte) (3 & move);
     }
+
     // Long Board Methods
+    public static int getRankIndex(long square) {
+        int zeroes = Long.numberOfTrailingZeros(square);
+        return (zeroes / 8);
+    }
+
+    public static int getFileIndex(long square) {
+        int zeroes = Long.numberOfTrailingZeros(square);
+        return (zeroes % 8);
+    }
 
     public static void print(long input) {
         for (long i = 63; i >= 0; i--) {
@@ -288,11 +317,11 @@ public class Chess {
     }
 
     public static long create(int x, int y) {
-        return FILES[x] & ROWS[y];
+        return FILES[x] & RANKS[y];
     }
 
     public static long create(String square) {
-        return FILES[square.charAt(0) - 'a'] & ROWS[square.charAt(1) - '1'];
+        return FILES[square.charAt(0) - 'a'] & RANKS[square.charAt(1) - '1'];
     }
 
     public static long get(long input, int x, int y) {
