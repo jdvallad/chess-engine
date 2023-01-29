@@ -6,6 +6,9 @@ public class Driver {
         game.print();
         game.move("f1f4");
         game.move("g1g4");
+        game.move("d1d4");
+        game.move("c1c4");
+        game.move("b1b4");
         game.print();
         long start = Chess.create("e1");
         long end = Chess.create("h1");

@@ -29,12 +29,12 @@ public class Chess {
     public static final long RANK_6 = 280375465082880l;
     public static final long RANK_7 = 71776119061217280l;
     public static final long RANK_8 = -72057594037927936l;
-    public static final byte FLAG_EMPTY = 0;
+    public static final byte FLAG_STANDARD = 0;
     public static final byte FLAG_CASTLE = 1;
     public static final byte FLAG_EN_PASSANT = 2;
     public static final byte FLAG_PROMOTION = 3;
     public static final int[] PROMOTION_PIECES = { QUEEN, KNIGHT, BISHOP, ROOK };
-    public static final byte[] FLAGS = new byte[] { FLAG_EMPTY, FLAG_CASTLE, FLAG_EN_PASSANT, FLAG_PROMOTION };
+    public static final byte[] FLAGS = new byte[] { FLAG_STANDARD, FLAG_CASTLE, FLAG_EN_PASSANT, FLAG_PROMOTION };
     public static final int[] PIECES = new int[] { QUEEN, KNIGHT, BISHOP, ROOK, KING, PAWN, EMPTY };
     public static final long[] FILES = new long[] { A_FILE, B_FILE, C_FILE, D_FILE, E_FILE, F_FILE, G_FILE, H_FILE };
     public static final long[] FILES_REVERSED = new long[] { H_FILE, G_FILE, F_FILE, E_FILE, D_FILE, C_FILE, B_FILE,
@@ -115,53 +115,125 @@ public class Chess {
         if (legalMoves.contains(move)) {
             return;
         }
-        long start = getStartingSquare(move);
-        long end = getEndingSquare(move);
-        int startPiece = getPiece(start);
-        int endPiece = getPiece(end);
-        byte promotion = getPromotion(move);
-        byte flag = getFlag(move);
-        int startColor = ((combinedBoards[BLACK] & start) == start) ? BLACK : WHITE;
-        int endColor = ((combinedBoards[BLACK] & end) == end) ? BLACK : WHITE;
-        if (flag == FLAG_PROMOTION) {
-            remove(start, startColor, startPiece);
-            add(start, startColor, promotion);
-            move(start, end);
-            enPassantSquare = 0l;
-            halfMoveCount = -1;
-        }
-        if (flag == FLAG_EN_PASSANT) {
-            long captureSquare = Chess.pushDown(end, end - start > 0 ? 1 : -1);
-            int capturePiece = getPiece(captureSquare);
-            int captureColor = ((combinedBoards[BLACK] & captureSquare) == captureSquare) ? BLACK : WHITE;
-            remove(captureSquare, captureColor, capturePiece);
-            move(start, end);
-            enPassantSquare = 0l;
-            halfMoveCount = -1;
-        }
-        if (flag == FLAG_CASTLE) {
-            long mainStartSquare = start;
-            long helperStartSquare = end;
-            long rank = (startColor == BLACK) ? RANK_8 : RANK_1;
-            long mainEndSquare = -1;
-            long helperEndSquare = -1;
-            if (getFileIndex(end) - getFileIndex(start) > 0) {// kingside castle if castling to the left
-                mainEndSquare = rank & G_FILE;
-                helperEndSquare = rank & F_FILE;
-            } else {
-                mainEndSquare = rank & C_FILE;
-                helperEndSquare = rank & D_FILE;
-            }
-            move(mainStartSquare, mainEndSquare);
-            move(helperStartSquare, helperEndSquare);
-            enPassantSquare = 0l;
+        switch (getFlag(move)) {
+            case FLAG_PROMOTION:
+                makePromotionMove(move);
+                break;
+            case FLAG_CASTLE:
+                makeCastleMove(move);
+                break;
+            case FLAG_EN_PASSANT:
+                makeEnPassantMove(move);
+                break;
+            case FLAG_STANDARD:
+                makeStandardMove(move);
+                break;
+            default:
+                makeStandardMove(move);
+                break;
         }
         if (turn == BLACK) {
             fullMoveCount += 1;
         }
         halfMoveCount += 1;
         this.turn ^= 1;
+        movesMade.add(move);
         updateLegalMoves();
+    }
+
+    public void makePromotionMove(short move) {
+        long start = getStartingSquare(move);
+        long end = getEndingSquare(move);
+        int endPiece = getPiece(end);
+        byte promotion = getPromotion(move);
+        int startColor = getColor(start);
+        int endColor = getColor(end);
+        add(start, startColor, promotion);
+        move(start, end);
+        if (endPiece == ROOK) { // if capturing a rook, remove appropriate castling rights
+            int fileDifference = getFileIndex(endPiece) - getFileIndex(pieceBoards[endColor][KING]);
+            if (fileDifference > 0) {
+                castleRights[endColor][KINGSIDE] = false;
+            } else {
+                castleRights[endColor][QUEENSIDE] = false;
+            }
+        }
+        enPassantSquare = 0l;
+        halfMoveCount = -1;
+        return;
+    }
+
+    public void makeCastleMove(short move) {
+        long start = getStartingSquare(move);
+        long end = getEndingSquare(move);
+        int startColor = getColor(start);
+        int endColor = getColor(end);
+        long mainStartSquare = start;
+        long helperStartSquare = end;
+        long mainRank = (startColor == BLACK) ? RANK_8 : RANK_1;
+        long helperRank = (endColor == BLACK) ? RANK_8 : RANK_1;
+        long mainEndSquare = -1;
+        long helperEndSquare = -1;
+        if (getFileIndex(end) - getFileIndex(start) > 0) {// kingside castle if castling to the left
+            mainEndSquare = mainRank & G_FILE;
+            helperEndSquare = helperRank & F_FILE;
+        } else {
+            mainEndSquare = mainRank & C_FILE;
+            helperEndSquare = helperRank & D_FILE;
+        }
+        move(mainStartSquare, mainEndSquare);
+        move(helperStartSquare, helperEndSquare);
+        enPassantSquare = 0l;
+        return;
+    }
+
+    public void makeEnPassantMove(short move) {
+        long start = getStartingSquare(move);
+        long end = getEndingSquare(move);
+        long captureSquare = Chess.pushDown(end, end - start > 0 ? 1 : -1);
+        remove(captureSquare);
+        move(start, end);
+        enPassantSquare = 0l;
+        halfMoveCount = -1;
+    }
+
+    public void makeStandardMove(Short move) {
+        long start = getStartingSquare(move);
+        long end = getEndingSquare(move);
+        move(start, end);
+        int startPiece = getPiece(start);
+        int endPiece = getPiece(end);
+        int startColor = getColor(start);
+        int endColor = getColor(end);
+        if (startPiece == PAWN || endPiece != EMPTY) { // pawn move or capture, reset halfMoveCount
+            halfMoveCount = -1;
+        }
+        if (startPiece == PAWN) { // update enPassantSquare
+            int rankDifference = getRankIndex(end) - getRankIndex(start);
+            if (Math.abs(rankDifference) == 2) {
+                enPassantSquare = pushUp(start, rankDifference / 2);
+            }
+        }
+        if (startPiece == KING) { // if moving king, no more castling for current player
+            castleRights[startColor][QUEENSIDE] = false;
+            castleRights[startColor][KINGSIDE] = false;
+        }
+        if (startPiece == ROOK) { // if moving rook, remove appropriate castling rights
+            int fileDifference = getFileIndex(startPiece) - getFileIndex(pieceBoards[startColor][KING]);
+            if (fileDifference > 0) {
+                castleRights[startColor][KINGSIDE] = false;
+            } else {
+                castleRights[startColor][QUEENSIDE] = false;
+            }
+        }
+        if (endPiece == ROOK) { // if capturing a rook, remove appropriate castling rights
+            int fileDifference = getFileIndex(endPiece) - getFileIndex(pieceBoards[endColor][KING]);
+            if (fileDifference > 0) {
+                castleRights[endColor][KINGSIDE] = false;
+            } else {
+                castleRights[endColor][QUEENSIDE] = false;
+            }
+        }
     }
 
     public void updateLegalMoves() {
@@ -170,11 +242,8 @@ public class Chess {
 
     public void move(long start, long end) {
         int startPiece = getPiece(start);
-        int endPiece = getPiece(end);
-        int startColor = ((combinedBoards[BLACK] & start) == start) ? BLACK : WHITE;
-        int endColor = ((combinedBoards[BLACK] & end) == end) ? BLACK : WHITE;
-        remove(start, startColor, startPiece);
-        remove(end, endColor, endPiece);
+        int startColor = getColor(start);
+        remove(start);
         add(end, startColor, startPiece);
     }
 
@@ -189,10 +258,8 @@ public class Chess {
     public void swap(long start, long end) {
         int startPiece = getPiece(start);
         int endPiece = getPiece(end);
-        int startColor = ((combinedBoards[BLACK] & start) == start) ? BLACK : WHITE;
-        int endColor = ((combinedBoards[BLACK] & end) == end) ? BLACK : WHITE;
-        remove(start, startColor, startPiece);
-        remove(end, endColor, endPiece);
+        int startColor = getColor(start);
+        int endColor = getColor(end);
         add(start, endColor, endPiece);
         add(end, startColor, startPiece);
     }
@@ -202,36 +269,34 @@ public class Chess {
     }
 
     public void add(long square, int color, int piece) {
-        pieceBoards[color][piece] |= square;
-        if (piece != EMPTY) {
-            combinedBoards[color] |= square;
-            pieceBoards[WHITE][EMPTY] &= ~square;
+        int priorPiece = getPiece(square);
+        int priorColor = getColor(square);
+        pieceBoards[priorColor][priorPiece] &= ~square; // remove prior piece from square
+        if (priorPiece != EMPTY) {
+            combinedBoards[priorColor] &= ~square; // remove prior piece from combinedBoard if its not EMPTY
         }
-    }
-
-    public void remove(long square, int color, int piece) {
-        pieceBoards[color][piece] &= ~square;
+        pieceBoards[color][piece] |= square; // add new piece to square
         if (piece != EMPTY) {
-            combinedBoards[color] &= ~square;
-            pieceBoards[WHITE][EMPTY] |= square;
+            combinedBoards[color] |= square; // add new piece to combinedBoard if its not EMPTY
         }
     }
 
     public void remove(long square) {
-        int piece = getPiece(square);
-        int color = ((combinedBoards[BLACK] & square) == square) ? BLACK : WHITE;
-        remove(square, color, piece);
+        add(square, WHITE, EMPTY);
     }
 
     public int getPiece(long square) {
-        for (int color : COLORS) {
-            for (int piece : PIECES) {
-                if ((pieceBoards[color][piece] & square) == square) {
-                    return piece;
-                }
+        int color = getColor(square);
+        for (int piece : PIECES) {
+            if ((pieceBoards[color][piece] & square) == square) {
+                return piece;
             }
         }
         return -1; // This shouldn't occur
+    }
+
+    public int getColor(long square) {
+        return (combinedBoards[BLACK] & square) == square ? BLACK : WHITE;
     }
 
     public short encodeMove(long start, long end, int promotion, int flag) {
