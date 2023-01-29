@@ -61,17 +61,18 @@ public class Chess {
     int halfMoveCount;
     int fullMoveCount;
     List<Short> movesMade;
-    List<Short> pseudoLegalMoves;
     List<Short> legalMoves;
+    List<Short>[] pseudoLegalMoves;
 
+    @SuppressWarnings("unchecked")
     public Chess() {
         turn = WHITE;
         enPassantSquare = 0l;
         halfMoveCount = 0;
         fullMoveCount = 1;
         movesMade = new ArrayList<>();
-        pseudoLegalMoves = new ArrayList<>();
         legalMoves = new ArrayList<>();
+        pseudoLegalMoves = (ArrayList<Short>[]) new List[COLORS.length];
         pieceBoards = new long[COLORS.length][PIECES.length];
         combinedBoards = new long[COLORS.length];
         castleRights = new boolean[COLORS.length][SIDES.length];
@@ -112,9 +113,14 @@ public class Chess {
     }
 
     public void makeMove(short move) {
-        if (legalMoves.contains(move)) {
+        if (legalMoves.contains(move)) { // must flip this
             return;
         }
+        makeShallowMove(move);
+        updateLegalMoves();
+    }
+
+    public void makeShallowMove(short move) {
         switch (getFlag(move)) {
             case FLAG_PROMOTION:
                 makePromotionMove(move);
@@ -138,7 +144,6 @@ public class Chess {
         halfMoveCount += 1;
         this.turn ^= 1;
         movesMade.add(move);
-        updateLegalMoves();
     }
 
     public void makePromotionMove(short move) {
@@ -237,6 +242,19 @@ public class Chess {
     }
 
     public void updateLegalMoves() {
+        updatePseudoLegalMoves();
+        for (short move : pseudoLegalMoves[this.turn]) {
+            if (getFlag(move) != FLAG_CASTLE) {
+                this.makeShallowMove(move);
+                updatePseudoLegalMoves();
+                for (short secondMove : pseudoLegalMoves[this.turn]) { // this.makeMove
+
+                }
+            }
+        }
+    }
+
+    public void updatePseudoLegalMoves() {
         return;
     }
 
