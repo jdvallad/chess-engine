@@ -11,8 +11,8 @@ public class Chess {
     public static final int EMPTY = 6;
     public static final int WHITE = 0;
     public static final int BLACK = 1;
-    public static final int KINGSIDE = 0;
-    public static final int QUEENSIDE = 1;
+    public static final int QUEENSIDE = 0;
+    public static final int KINGSIDE = 1;
     public static final long A_FILE = 72340172838076673l;
     public static final long B_FILE = 144680345676153346l;
     public static final long C_FILE = 289360691352306692l;
@@ -42,10 +42,13 @@ public class Chess {
     public static final long[] RANKS = new long[] { RANK_1, RANK_2, RANK_3, RANK_4, RANK_5, RANK_6, RANK_7, RANK_8 };
     public static final long[] RANKS_REVERSED = new long[] { RANK_8, RANK_7, RANK_6, RANK_5, RANK_4, RANK_3, RANK_2,
             RANK_1 };
-    public static final char[][] PIECE_CHARS = new char[][] { { '♛', '♞', '♝', '♜', '♚', '♟', ' ' },
+    public static final char[][] PIECE_CHARS_UNICODE = new char[][] { { '♛', '♞', '♝', '♜', '♚', '♟', ' ' },
             { '♕', '♘', '♗', '♖', '♔', '♙', '⚠' } }; // All empty squares will be white, ⚠ should never print
+    public static final char[][] PIECE_CHARS_ASCII = new char[][] { { 'Q', 'N', 'B', 'R', 'K', 'P', ' ' },
+            { 'q', 'n', 'b', 'r', 'k', 'p', ' ' } }; // All empty squares will be white, ⚠ should never print
     public static final int[] COLORS = new int[] { WHITE, BLACK };
-    public static final int[] SIDES = new int[] { KINGSIDE, QUEENSIDE };
+    public static final int[] SIDES = new int[] { QUEENSIDE, KINGSIDE };
+    public static final int[] SIDES_REVERSED = new int[] { KINGSIDE, QUEENSIDE };
     public static final long[][] DEFAULT_PIECEBOARDS = new long[][] {
             { 8l, 66l, 36l, 129l, 16l, 65280l, 281474976645120l },
             { 1152921504606846976l, 4755801206503243776l, 2594073385365405696l,
@@ -63,7 +66,8 @@ public class Chess {
     List<Short> legalMoves;
     List<Integer> reversibleMoves;
     List<Short>[] pseudoLegalMoves;
-    List<String> fenList;
+    List<String> shredderFenList;
+    int[] rooksStartingFileIndex;
 
     @SuppressWarnings("unchecked")
     public Chess() {
@@ -73,11 +77,12 @@ public class Chess {
         fullMoveCount = 1;
         reversibleMoves = new ArrayList<>();
         legalMoves = new ArrayList<>();
-        fenList = new ArrayList<>();
+        shredderFenList = new ArrayList<>();
         pseudoLegalMoves = (List<Short>[]) new List[COLORS.length];
         pieceBoards = new long[COLORS.length][PIECES.length];
         combinedBoards = new long[COLORS.length];
         castleRights = new boolean[COLORS.length][SIDES.length];
+        rooksStartingFileIndex = new int[SIDES.length];
         for (int color : COLORS) {
             pseudoLegalMoves[color] = new ArrayList<>();
             for (int piece : PIECES) {
@@ -88,6 +93,19 @@ public class Chess {
             }
             for (int side : SIDES) {
                 castleRights[color][side] = true;
+            }
+        }
+        int i = 0;
+        for (; i < FILES.length; i++) {
+            if ((pieceBoards[WHITE][ROOK] & FILES[i]) != 0l) {
+                rooksStartingFileIndex[0] = i;
+                break;
+            }
+        }
+        for (i++; i < FILES.length; i++) {
+            if ((pieceBoards[WHITE][ROOK] & FILES[i]) != 0l) {
+                rooksStartingFileIndex[1] = i;
+                break;
             }
         }
     }
@@ -105,7 +123,7 @@ public class Chess {
                 for (int color : COLORS) {
                     for (int piece : PIECES) {
                         if ((pieceBoards[color][piece] & square) == square) {
-                            System.out.print(" " + PIECE_CHARS[color][piece] + " │");
+                            System.out.print(" " + PIECE_CHARS_UNICODE[color][piece] + " │");
                             continue foundPiece;
                         }
                     }
@@ -113,6 +131,30 @@ public class Chess {
             }
         }
         System.out.println("\r\n╹⎯⎯⎯╹⎯⎯⎯╹⎯⎯⎯╹⎯⎯⎯╹⎯⎯⎯╹⎯⎯⎯╹⎯⎯⎯╹⎯⎯⎯╹");
+    }
+
+    public void printSimple() {
+        boolean flag = false;
+        System.out.print("\r\n|---|---|---|---|---|---|---|---|\r\n|");
+        for (long rank : RANKS_REVERSED) {
+            if (flag) {
+                System.out.print("\r\n|---|---|---|---|---|---|---|---|\r\n|");
+            }
+            flag = true;
+            foundPiece: for (long file : FILES) {
+                long square = rank & file;
+                for (int color : COLORS) {
+                    for (int piece : PIECES) {
+                        if ((pieceBoards[color][piece] & square) == square) {
+                            System.out.print(" " + PIECE_CHARS_ASCII[color][piece] + " |");
+                            continue foundPiece;
+                        }
+                    }
+                }
+            }
+        }
+        System.out.println("\r\n|---|---|---|---|---|---|---|---|\r\n");
+
     }
 
     public void makeMove(short move) {
@@ -157,84 +199,27 @@ public class Chess {
         return;
     }
 
-    public String getFen() {
-        StringBuilder res = new StringBuilder();
-        for (int i = 0; i < 8; i++) {
-            int count = 0;
-            for (int c = 0; c < 8; c++) {
-                char start = ' ';
-                for (char s : new char[] { 'P', 'R', 'N', 'B', 'Q', 'K', 'p', 'r', 'n', 'b', 'q', 'k' }) {
-                    if ((pieces(s) >>> (i * 8 + c) & 1) == 1L) {
-                        start = s;
-                    }
-                }
-                if (start == ' ') {
-                    count += 1;
-                } else {
-                    if (count != 0) {
-                        res.append(count);
-                        count = 0;
-                    }
-                    res.append(start);
-                }
-            }
-            if (count != 0) {
-                res.append(count);
-            }
-            if (i != 7) {
-                res.append("/");
-            }
-        }
-        res.append(turn ? " w " : " b ");
-        int count = 0;
-        if (wKC) {
-            res.append("K");
-            count++;
-        }
-        if (wQC) {
-            res.append("Q");
-            count++;
-        }
-        if (bKC) {
-            res.append("k");
-            count++;
-        }
-        if (bQC) {
-            res.append("q");
-            count++;
-        }
-        if (count == 0) {
-            res.append("-");
-        }
-        if (enPassant == -1) {
-            res.append(" -");
-        } else {
-            res.append(" ").append(byteToString(enPassant));
-        }
-        res.append(" ").append(halfMoveClock).append(" ").append(fullMoveNumber);
-        return res.toString();
-    }
-
     public void makePromotionMove(short move) {
         long start = getStartingSquare(move);
         long end = getEndingSquare(move);
-        int endPiece = getPiece(end);
         byte promotion = getPromotion(move);
         int startColor = getColor(start);
         int endColor = getColor(end);
         add(start, startColor, promotion);
         move(start, end);
-        if (endPiece == ROOK) { // if capturing a rook, remove appropriate castling rights
-            int fileDifference = getFileIndex(endPiece) - getFileIndex(pieceBoards[endColor][KING]);
-            if (fileDifference > 0) {
-                castleRights[endColor][KINGSIDE] = false;
-            } else {
-                castleRights[endColor][QUEENSIDE] = false;
+        for (int side : SIDES) {
+            if (castleRights[endColor][side]
+                    && (FILES[rooksStartingFileIndex[side]] & getBackRank(endColor)) == end) {
+                castleRights[endColor][side] = false;
             }
         }
         enPassantSquare = 0l;
         halfMoveCount = -1;
         return;
+    }
+
+    public long getBackRank(int color) {
+        return (color == BLACK) ? RANK_8 : RANK_1;
     }
 
     public void makeCastleMove(short move) {
@@ -244,11 +229,11 @@ public class Chess {
         int endColor = getColor(end);
         long mainStartSquare = start;
         long helperStartSquare = end;
-        long mainRank = (startColor == BLACK) ? RANK_8 : RANK_1;
-        long helperRank = (endColor == BLACK) ? RANK_8 : RANK_1;
-        long mainEndSquare = -1;
-        long helperEndSquare = -1;
-        if (getFileIndex(end) - getFileIndex(start) > 0) {// kingside castle if castling to the left
+        long mainRank = getBackRank(startColor);
+        long helperRank = getBackRank(endColor);
+        long mainEndSquare = 0;
+        long helperEndSquare = 0;
+        if (getFileIndex(end) - getFileIndex(start) > 0) {// kingside castle if castling to the right
             mainEndSquare = mainRank & G_FILE;
             helperEndSquare = helperRank & F_FILE;
         } else {
@@ -258,6 +243,9 @@ public class Chess {
         move(mainStartSquare, mainEndSquare);
         move(helperStartSquare, helperEndSquare);
         enPassantSquare = 0l;
+        for (int side : SIDES) {
+            castleRights[startColor][side] = false;
+        }
         return;
     }
 
@@ -288,24 +276,21 @@ public class Chess {
                 enPassantSquare = pushUp(start, rankDifference / 2);
             }
         }
-        if (startPiece == KING) { // if moving king, no more castling for current player
-            castleRights[startColor][QUEENSIDE] = false;
-            castleRights[startColor][KINGSIDE] = false;
-        }
-        if (startPiece == ROOK) { // if moving rook, remove appropriate castling rights
-            int fileDifference = getFileIndex(startPiece) - getFileIndex(pieceBoards[startColor][KING]);
-            if (fileDifference > 0) {
-                castleRights[startColor][KINGSIDE] = false;
-            } else {
-                castleRights[startColor][QUEENSIDE] = false;
+        for (int side : SIDES) { // update castling rights
+            if (castleRights[startColor][side] // update if moving king
+                    && startPiece == KING) {
+                castleRights[startColor][side] = false;
+                continue;
             }
-        }
-        if (endPiece == ROOK) { // if capturing a rook, remove appropriate castling rights
-            int fileDifference = getFileIndex(endPiece) - getFileIndex(pieceBoards[endColor][KING]);
-            if (fileDifference > 0) {
-                castleRights[endColor][KINGSIDE] = false;
-            } else {
-                castleRights[endColor][QUEENSIDE] = false;
+            if (castleRights[startColor][side] // update if moving an unmoved rook
+                    && (FILES[rooksStartingFileIndex[side]] & getBackRank(startColor)) == start) {
+                castleRights[startColor][side] = false;
+                continue;
+            }
+            if (castleRights[endColor][side] // update if capturing an unmoved rook
+                    && (FILES[rooksStartingFileIndex[side]] & getBackRank(endColor)) == end) {
+                castleRights[endColor][side] = false;
+                continue;
             }
         }
     }
@@ -408,6 +393,174 @@ public class Chess {
 
     public byte getFlag(short move) {
         return (byte) (3 & move);
+    }
+
+    public String getShredderFen() {
+        StringBuilder build = new StringBuilder("");
+        int count = 0;
+        for (long rank : RANKS_REVERSED) {
+            for (long file : FILES) {
+                int piece = getPiece(rank & file);
+                int color = getColor(rank & file);
+                if (piece == EMPTY) {
+                    count++;
+                    if (count == FILES.length) {
+                        build.append(count);
+                        count = 0;
+                    }
+                    continue;
+                }
+                if (count > 0) {
+                    build.append(count);
+                    count = 0;
+                }
+                build.append(PIECE_CHARS_ASCII[color][piece]);
+            }
+            build.append("/");
+        }
+        build.setLength(build.length() - 1);
+        build.append(" ");
+        if (turn == WHITE) {
+            build.append("w ");
+        } else {
+            build.append("b ");
+        }
+        boolean anyCastle = false;
+        for (int color : COLORS) {
+            for (int side : SIDES_REVERSED) {
+                if (castleRights[color][side]) {
+                    anyCastle = true;
+                    build.append((char) ((color == WHITE ? 'A' : 'a') + rooksStartingFileIndex[side]));
+                }
+            }
+        }
+        if (!anyCastle) {
+            build.append("-");
+        }
+        build.append(" ");
+        if (enPassantSquare == 0l) {
+            build.append("-");
+        } else {
+            build.append((char) (getFileIndex(enPassantSquare) + 'a'));
+            build.append((char) (getRankIndex(enPassantSquare) + '1'));
+        }
+        build.append(" ");
+        build.append(halfMoveCount);
+        build.append(" ");
+        build.append(fullMoveCount);
+        return build.toString();
+    }
+
+    public void setFromShredderFen(String fen) {
+        int fileIndex = 0;
+        int stringIndex = 0;
+        char pointer = fen.charAt(stringIndex);
+        for (long rank : RANKS_REVERSED) {
+            fileIndex = 0;
+            while (pointer != '/' && pointer != ' ') {
+                if ('0' <= pointer && pointer <= '9') {
+                    for (int i = 0; i < pointer - '0'; i++) {
+                        add(FILES[fileIndex + i] & rank, WHITE, EMPTY);
+                    }
+                    fileIndex += pointer - '0';
+                    stringIndex++;
+                    pointer = fen.charAt(stringIndex);
+                    continue;
+                }
+                int piece = getPieceFromChar(pointer);
+                int color = getColorFromChar(pointer);
+                add(FILES[fileIndex] & rank, color, piece);
+                fileIndex++;
+                stringIndex++;
+                pointer = fen.charAt(stringIndex);
+            }
+            stringIndex++;
+            pointer = fen.charAt(stringIndex);
+        }
+        stringIndex++;
+        pointer = fen.charAt(stringIndex);
+        turn = (pointer == 'w') ? WHITE : BLACK;
+        stringIndex++;
+        pointer = fen.charAt(stringIndex);
+        if (pointer == '-') {
+            for (int color : COLORS) {
+                for (int side : SIDES) {
+                    castleRights[color][side] = false;
+                }
+            }
+        } else {
+            while (pointer != ' ') {
+                int color = getColorFromChar(pointer);
+                int index = Character.toLowerCase(pointer) - 'a';
+                int side = getFileIndex(pieceBoards[color][KING]) - index > 0 ? QUEENSIDE : KINGSIDE;
+                rooksStartingFileIndex[side] = index;
+                castleRights[color][side] = true;
+                stringIndex++;
+                pointer = fen.charAt(stringIndex);
+            }
+        }
+        stringIndex++;
+        pointer = fen.charAt(stringIndex);
+        if (pointer == '-') {
+            enPassantSquare = 0l;
+        } else {
+            long file = FILES[pointer - 'a'];
+            stringIndex++;
+            pointer = fen.charAt(stringIndex);
+            long rank = RANKS[pointer - '1'];
+            enPassantSquare = file & rank;
+        }
+        stringIndex+=2;
+        pointer = fen.charAt(stringIndex);
+        String temp = "";
+        while (pointer != ' ') {
+            temp += pointer;
+            stringIndex++;
+            pointer = fen.charAt(stringIndex);
+        }
+        halfMoveCount = Integer.parseInt(temp);
+        stringIndex++;
+        temp = fen.substring(stringIndex);
+        fullMoveCount = Integer.parseInt(temp);
+        return;
+    }
+
+    public int getPieceFromChar(char c) {
+        if (c == ' ') {
+            return EMPTY;
+        }
+        switch (Character.toUpperCase(c)) {
+            case 'Q':
+                return QUEEN;
+            case 'R':
+                return ROOK;
+            case 'B':
+                return BISHOP;
+            case 'N':
+                return KNIGHT;
+            case 'K':
+                return KING;
+            case 'P':
+                return PAWN;
+            default:
+                return -1;
+        }
+    }
+
+    public int getSideFromChars(char right, char left) {
+        int colorLeft = getColor(left);
+        int colorRight = getColor(right);
+        if (colorLeft == colorRight) {
+            return QUEENSIDE;
+        }
+        return KINGSIDE;
+    }
+
+    public int getColorFromChar(char c) {
+        if (c == ' ') {
+            return WHITE;
+        }
+        return Character.isUpperCase(c) ? WHITE : BLACK;
     }
 
     // Long Board Methods
