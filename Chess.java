@@ -60,9 +60,10 @@ public class Chess {
     long enPassantSquare;
     int halfMoveCount;
     int fullMoveCount;
-    List<Short> movesMade;
     List<Short> legalMoves;
+    List<Integer> reversibleMoves;
     List<Short>[] pseudoLegalMoves;
+    List<String> fenList;
 
     @SuppressWarnings("unchecked")
     public Chess() {
@@ -70,13 +71,15 @@ public class Chess {
         enPassantSquare = 0l;
         halfMoveCount = 0;
         fullMoveCount = 1;
-        movesMade = new ArrayList<>();
+        reversibleMoves = new ArrayList<>();
         legalMoves = new ArrayList<>();
-        pseudoLegalMoves = (ArrayList<Short>[]) new List[COLORS.length];
+        fenList = new ArrayList<>();
+        pseudoLegalMoves = (List<Short>[]) new List[COLORS.length];
         pieceBoards = new long[COLORS.length][PIECES.length];
         combinedBoards = new long[COLORS.length];
         castleRights = new boolean[COLORS.length][SIDES.length];
         for (int color : COLORS) {
+            pseudoLegalMoves[color] = new ArrayList<>();
             for (int piece : PIECES) {
                 pieceBoards[color][piece] = DEFAULT_PIECEBOARDS[color][piece];
                 if (piece != EMPTY) {
@@ -121,6 +124,7 @@ public class Chess {
     }
 
     public void makeShallowMove(short move) {
+        reversibleMoves.add(encodeReversibleMove(move));
         switch (getFlag(move)) {
             case FLAG_PROMOTION:
                 makePromotionMove(move);
@@ -143,7 +147,72 @@ public class Chess {
         }
         halfMoveCount += 1;
         this.turn ^= 1;
-        movesMade.add(move);
+    }
+
+    public int encodeReversibleMove(short move) {
+        return move;
+    }
+
+    public void undoReversibleMove(int reversibleMove) {
+        return;
+    }
+
+    public String getFen() {
+        StringBuilder res = new StringBuilder();
+        for (int i = 0; i < 8; i++) {
+            int count = 0;
+            for (int c = 0; c < 8; c++) {
+                char start = ' ';
+                for (char s : new char[] { 'P', 'R', 'N', 'B', 'Q', 'K', 'p', 'r', 'n', 'b', 'q', 'k' }) {
+                    if ((pieces(s) >>> (i * 8 + c) & 1) == 1L) {
+                        start = s;
+                    }
+                }
+                if (start == ' ') {
+                    count += 1;
+                } else {
+                    if (count != 0) {
+                        res.append(count);
+                        count = 0;
+                    }
+                    res.append(start);
+                }
+            }
+            if (count != 0) {
+                res.append(count);
+            }
+            if (i != 7) {
+                res.append("/");
+            }
+        }
+        res.append(turn ? " w " : " b ");
+        int count = 0;
+        if (wKC) {
+            res.append("K");
+            count++;
+        }
+        if (wQC) {
+            res.append("Q");
+            count++;
+        }
+        if (bKC) {
+            res.append("k");
+            count++;
+        }
+        if (bQC) {
+            res.append("q");
+            count++;
+        }
+        if (count == 0) {
+            res.append("-");
+        }
+        if (enPassant == -1) {
+            res.append(" -");
+        } else {
+            res.append(" ").append(byteToString(enPassant));
+        }
+        res.append(" ").append(halfMoveClock).append(" ").append(fullMoveNumber);
+        return res.toString();
     }
 
     public void makePromotionMove(short move) {

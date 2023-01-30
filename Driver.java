@@ -17,6 +17,7 @@ public class Driver {
         short move = game.encodeMove(start, end, promotion, flag);
         game.makeMove(move);
         game.print();
-
+        long temp = 63l;
+        Chess.print(temp);
     }
 }
