@@ -604,7 +604,7 @@ public class Chess {
 
     public void addPseudoLegalPawnMoves() {
         int offset = (turn == BLACK) ? -1 : 1;
-        long startingPawns = pieceBoards[turn][PAWN] & RANKS[4 - offset * 3]; // all pawns on starting square
+        long startingPawns = pieceBoards[turn][PAWN] & ((turn == BLACK ) ? RANK_7 : RANK_2); // all pawns on starting square
         long emptySquares = pieceBoards[WHITE][EMPTY];
 
         startingPawns = pushUp(startingPawns, offset) & emptySquares; // advance the pawns one square
