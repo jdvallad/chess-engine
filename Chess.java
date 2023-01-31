@@ -48,6 +48,7 @@ public class Chess {
     public static final char[][] PIECE_CHARS_ASCII = new char[][] { { 'Q', 'N', 'B', 'R', 'K', 'P', ' ' },
             { 'q', 'n', 'b', 'r', 'k', 'p', ' ' } }; // All empty squares will be white, ⚠ should never print
     public static final int[] COLORS = new int[] { WHITE, BLACK };
+    public static final int[] COLORS_REVERSED = new int[] { BLACK, WHITE };
     public static final int[] SIDES = new int[] { QUEENSIDE, KINGSIDE };
     public static final int[] SIDES_REVERSED = new int[] { KINGSIDE, QUEENSIDE };
     public static final long[][] DEFAULT_PIECEBOARDS = new long[][] {
@@ -131,9 +132,11 @@ public class Chess {
         for (short move : legalMoves) {
             long startingSquare = getStartingSquare(move);
             long endingSquare = getEndingSquare(move);
-            String startingString = "" + ('a' + getFileIndex(startingSquare)) + ('1' + getRankIndex(startingSquare));
-            String endingString = "" + ('a' + getFileIndex(endingSquare)) + ('1' + getRankIndex(endingSquare));
-            System.out.println("" + startingString + endingString + ", ");
+            char startingFile = (char) ('a' + getFileIndex(startingSquare));
+            char startingRank = (char) ('1' + getRankIndex(startingSquare));
+            char endingFile = (char) ('a' + getFileIndex(endingSquare));
+            char endingRank = (char) ('1' + getRankIndex(endingSquare));
+            System.out.print("" + startingFile + startingRank + endingFile + endingRank + ", ");
         }
         System.out.println("]");
     }
@@ -163,7 +166,7 @@ public class Chess {
     }
 
     public void makeMove(short move) {
-        if (legalMoves.contains(move)) { // must flip this
+        if (!legalMoves.contains(move)) {
             return;
         }
         makeShallowMove(move);
@@ -198,89 +201,218 @@ public class Chess {
     }
 
     public long encodeReversibleMove(short move) {
-        byte startingSquare = (byte) Long.numberOfTrailingZeros(getStartingSquare(move)); // 6 bits
-        int startingPiece = getPiece(startingSquare); // 3 bits
-        int startingColor = getColor(startingSquare); // 1 bit
-        byte endingSquare = (byte) Long.numberOfTrailingZeros(getEndingSquare(move)); // 6 bits
-        int endingPiece = getPiece(startingSquare); // 3 bits
-        int endingColor = getColor(startingSquare); // 1 bit
-        byte enPassantSquareOffset = (byte) Long.numberOfTrailingZeros(enPassantSquare); // 6 bits
-        // castleRights (4 bits)
-        // halfMoveCount 32 bits (full int)
-        // 62 bits, a long! (niceee)
-        long output = 0;
+        // Info needed to encode reversible move:
+        // starting and ending square, starting and ending piece,
+        // starting and ending piece color, enPassantSquare
+        // castleRights, move flag, and half move count.
+        // starting piece and starting color can be inferred from board state
+        // so they do not need to be encoded. But they will just for ease.
 
-        long push = pushRight(1l, 6);
+        long startingSquareLong = getStartingSquare(move);
+        int startingSquareInt = Long.numberOfTrailingZeros(startingSquareLong); // 6 bits
+        int startingPiece = getPiece(startingSquareLong); // 3 bits
+        int startingColor = getColor(startingSquareLong); // 1 bit
+        long endingSquareLong = getEndingSquare(move);
+        int endingSquareInt = Long.numberOfTrailingZeros(endingSquareLong); // 6 bits
+        int endingPiece = getPiece(endingSquareLong); // 3 bits
+        int endingColor = getColor(endingSquareLong); // 1 bit
+        int enPassantSquareOffset = Long.numberOfTrailingZeros(enPassantSquare); // 6 bits
+        int flag = getFlag(move); // (2 bits)
+        // halfMoveCount (32 bits)
+        // castleRights (4 bits)
+        // 64 bits, a long! (niceee)
+        long output = 0;
+        long push = pushRight(1l, 6 - 1);
         while (push != 0) {
-            output |= push & startingSquare;
+            output |= push & startingSquareInt;
             push = pushLeft(push, 1);
         }
 
         output = pushRight(output, 3);
-        push = pushRight(1l, 3);
+        push = pushRight(1l, 3 - 1);
         while (push != 0) {
             output |= push & startingPiece;
             push = pushLeft(push, 1);
         }
 
         output = pushRight(output, 1);
-        push = pushRight(1l, 1);
+        push = pushRight(1l, 1 - 1);
         while (push != 0) {
             output |= push & startingColor;
             push = pushLeft(push, 1);
         }
 
         output = pushRight(output, 6);
-        push = pushRight(1l, 6);
+        push = pushRight(1l, 6 - 1);
         while (push != 0) {
-            output |= push & endingSquare;
+            output |= push & endingSquareInt;
             push = pushLeft(push, 1);
         }
 
         output = pushRight(output, 3);
-        push = pushRight(1l, 3);
+        push = pushRight(1l, 3 - 1);
         while (push != 0) {
             output |= push & endingPiece;
             push = pushLeft(push, 1);
         }
 
         output = pushRight(output, 1);
-        push = pushRight(1l, 1);
+        push = pushRight(1l, 1 - 1);
         while (push != 0) {
             output |= push & endingColor;
             push = pushLeft(push, 1);
         }
 
         output = pushRight(output, 6);
-        push = pushRight(1l, 6);
+        push = pushRight(1l, 6 - 1);
         while (push != 0) {
             output |= push & enPassantSquareOffset;
             push = pushLeft(push, 1);
         }
+
+        output = pushRight(output, 2);
+        push = pushRight(1l, 2 - 1);
+        while (push != 0) {
+            output |= push & flag;
+            push = pushLeft(push, 1);
+        }
+
+        output = pushRight(output, 32);
+        push = pushRight(1l, 32 - 1);
+        while (push != 0) {
+            output |= push & halfMoveCount;
+            push = pushLeft(push, 1);
+        }
+
         for (int color : COLORS) {
             for (int side : SIDES) {
                 output = pushRight(output, 1);
-                push = pushRight(1l, 1);
+                push = pushRight(1l, 1 - 1);
                 while (push != 0) {
                     output |= push & (castleRights[color][side] ? 1l : 0l);
                     push = pushLeft(push, 1);
                 }
             }
         }
-        output = pushRight(output, 32);
-        push = pushRight(1l, 32);
-        while (push != 0) {
-            output |= push & halfMoveCount;
-            push = pushLeft(push, 1);
-        }
+
         return output;
     }
 
     public void simpleUndoReversibleMove() {
-        // undo the move board logic
+        // castleRights (4 bits)
+        halfMoveCount = 0; // (32 bits)
+        int flag = 0; // (2 bits)
+        int enPassantSquareOffset = 0; // 6 bits
+        int endingColor = 0; // 1 bit
+        int endingPiece = 0; // 3 bits
+        int endingSquareOffset = 0; // 6 bits
+        int startingColor = 0; // 1 bit
+        int startingPiece = 0; // 3 bits
+        int startingSquareOffset = 0; // 6 bits
+        long endingSquare = 0l;
+        long startingSquare = 0l;
+        long input = reversibleMoves.remove(reversibleMoves.size() - 1);
+        long push = 0;
+        for (int color : COLORS_REVERSED) {
+            for (int side : SIDES_REVERSED) {
+                push = pushRight(1l, 1 - 1);
+                while (push != 0) {
+                    castleRights[color][side] = (push & input) != 0;
+                    push = pushLeft(push, 1);
+                }
+                input = pushLeft(input, 1);
+            }
+        }
 
+        push = pushRight(1l, 32 - 1);
+        while (push != 0) {
+            halfMoveCount |= push & input;
+            push = pushLeft(push, 1);
+        }
+        input = pushLeft(input, 32);
+
+        push = pushRight(1l, 2 - 1);
+        while (push != 0) {
+            flag |= push & input;
+            push = pushLeft(push, 1);
+        }
+        input = pushLeft(input, 2);
+
+        push = pushRight(1l, 6 - 1);
+        while (push != 0) {
+            enPassantSquareOffset |= push & input;
+            push = pushLeft(push, 1);
+        }
+        enPassantSquare = pushRight(1l, enPassantSquareOffset);
+        input = pushLeft(input, 6);
+
+        push = pushRight(1l, 1 - 1);
+        while (push != 0) {
+            endingColor |= push & input;
+            push = pushLeft(push, 1);
+        }
+        input = pushLeft(input, 1);
+
+        push = pushRight(1l, 3 - 1);
+        while (push != 0) {
+            endingPiece |= push & input;
+            push = pushLeft(push, 1);
+        }
+        input = pushLeft(input, 3);
+
+        push = pushRight(1l, 6 - 1);
+        while (push != 0) {
+            endingSquareOffset |= push & input;
+            push = pushLeft(push, 1);
+        }
+        endingSquare = pushRight(1l, endingSquareOffset);
+        input = pushLeft(input, 6);
+
+        push = pushRight(1l, 1 - 1);
+        while (push != 0) {
+            startingColor |= push & input;
+            push = pushLeft(push, 1);
+        }
+        input = pushLeft(input, 1);
+
+        push = pushRight(1l, 3 - 1);
+        while (push != 0) {
+            startingPiece |= push & input;
+            push = pushLeft(push, 1);
+        }
+        input = pushLeft(input, 3);
+
+        push = pushRight(1l, 6 - 1);
+        while (push != 0) {
+            startingSquareOffset |= push & input;
+            push = pushLeft(push, 1);
+        }
+        startingSquare = pushRight(1l, startingSquareOffset);
+        input = pushLeft(input, 6);
+
+        add(startingSquare, startingColor, startingPiece);
+        add(endingSquare, endingColor, endingPiece);
+        switch (flag) {
+            case FLAG_CASTLE:
+                long back = getBackRank(startingColor);
+                if ((ROOK_STARTING_FILES[QUEENSIDE] & back) == endingSquare) {
+                    remove(back & C_FILE);
+                    remove(back & D_FILE);
+                } else {
+                    remove(back & F_FILE);
+                    remove(back & G_FILE);
+                }
+                break;
+            case FLAG_PROMOTION:
+                break;
+            case FLAG_EN_PASSANT:
+                long captureSquare = RANKS[getRankIndex(startingSquare)] & FILES[getFileIndex(endingSquare)];
+                remove(captureSquare);
+                break;
+            case FLAG_STANDARD:
+                break;
+        }
         turn ^= 1;
-        reversibleMoves.remove(reversibleMoves.size() - 1);
         shortenedFenList.remove(shortenedFenList.size() - 1);
         return;
     }
@@ -486,7 +618,7 @@ public class Chess {
                 if (endingSquare == 0) {
                     continue;
                 }
-                startingSquare = pushDown(startingSquare, 2 * offset);
+                startingSquare = pushDown(endingSquare, 2 * offset);
                 move = encodeMove(startingSquare, endingSquare, 0, FLAG_STANDARD);
                 pseudoLegalMoves[turn].add(move);
             }
@@ -501,7 +633,7 @@ public class Chess {
                 if (endingSquare == 0) {
                     continue;
                 }
-                startingSquare = pushDown(startingSquare, offset);
+                startingSquare = pushDown(endingSquare, offset);
                 if (endingSquare == RANKS[(turn == BLACK) ? 0 : 7]) {
                     for (int piece : PROMOTION_PIECES) {
                         move = encodeMove(startingSquare, endingSquare, piece, FLAG_PROMOTION);
@@ -524,7 +656,7 @@ public class Chess {
                 if (endingSquare == 0) {
                     continue;
                 }
-                startingSquare = pushDown(startingSquare, offset);
+                startingSquare = pushDown(endingSquare, offset);
                 startingSquare = pushLeft(startingSquare, 1);
                 if (endingSquare == RANKS[(turn == BLACK) ? 0 : 7]) {
                     for (int piece : PROMOTION_PIECES) {
@@ -548,7 +680,7 @@ public class Chess {
                 if (endingSquare == 0) {
                     continue;
                 }
-                startingSquare = pushDown(startingSquare, offset);
+                startingSquare = pushDown(endingSquare, offset);
                 startingSquare = pushLeft(startingSquare, -1);
                 if (endingSquare == RANKS[(turn == BLACK) ? 0 : 7]) {
                     for (int piece : PROMOTION_PIECES) {
