@@ -712,7 +712,7 @@ public class ChessNew {
         long emptySquares = pieceBoards[WHITE][EMPTY];
         long destinationSquares = 0;
         for (int offset : KNIGHT_OFFSETS) {
-            destinationSquares |= pushRightOff(knights, offset) & emptySquares;
+            destinationSquares |= pushRight(knights, offset) & emptySquares;
         }
         long endingSquare;
         long startingSquare;
@@ -724,7 +724,7 @@ public class ChessNew {
                     continue;
                 }
                 for (int offset : KNIGHT_OFFSETS) {
-                    startingSquare = pushRightOff(endingSquare, offset) & knights;
+                    startingSquare = pushRight(endingSquare, offset) & knights;
                     if (startingSquare != 0) {
                         move = encodeMove(startingSquare, endingSquare, 0, FLAG_STANDARD);
                         if (!pseudoLegalMoves[turn].contains(move)) {
@@ -1005,6 +1005,7 @@ public class ChessNew {
         stringIndex++;
         temp = fen.substring(stringIndex);
         fullMoveCount = Integer.parseInt(temp);
+        updateLegalMoves();
         return;
     }
 
