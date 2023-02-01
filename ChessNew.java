@@ -645,7 +645,7 @@ public class ChessNew {
                     continue;
                 }
                 startingSquare = pushDown(endingSquare, offset);
-                if (endingSquare == RANKS[(turn == BLACK) ? 0 : 7]) {
+                if (endingSquare == getBackRank(turn ^ 1)) {
                     for (int piece : PROMOTION_PIECES) {
                         move = encodeMove(startingSquare, endingSquare, piece, FLAG_PROMOTION);
                         pseudoLegalMoves[turn].add(move);
@@ -669,7 +669,7 @@ public class ChessNew {
                 }
                 startingSquare = pushDown(endingSquare, offset);
                 startingSquare = pushLeft(startingSquare, 1);
-                if (endingSquare == RANKS[(turn == BLACK) ? 0 : 7]) {
+                if (endingSquare == getBackRank(turn ^ 1)) {
                     for (int piece : PROMOTION_PIECES) {
                         move = encodeMove(startingSquare, endingSquare, piece, FLAG_PROMOTION);
                         pseudoLegalMoves[turn].add(move);
@@ -693,7 +693,7 @@ public class ChessNew {
                 }
                 startingSquare = pushDown(endingSquare, offset);
                 startingSquare = pushLeft(startingSquare, -1);
-                if (endingSquare == RANKS[(turn == BLACK) ? 0 : 7]) {
+                if (endingSquare == getBackRank(turn ^ 1)) {
                     for (int piece : PROMOTION_PIECES) {
                         move = encodeMove(startingSquare, endingSquare, piece, FLAG_PROMOTION);
                         pseudoLegalMoves[turn].add(move);
@@ -1078,72 +1078,6 @@ public class ChessNew {
             return pushRight(input, -shift);
         }
         return (input >>> shift);
-    }
-
-    public static long pushRightOff(long input, int shift) {
-        if (shift > 63) {
-            return 0l;
-        }
-        if (shift < 0) {
-            return pushLeftOff(input, -shift);
-        }
-        long output = input;
-        for (int i = 0; i < shift; i++) {
-            output &= H_FILE;
-            output = pushRight(output, 1);
-        }
-        return output;
-    }
-
-    public static long pushLeftOff(long input, int shift) {
-        if (shift > 63) {
-            return 0l;
-        }
-        if (shift < 0) {
-            return pushRightOff(input, -shift);
-        }
-        long output = input;
-        for (int i = 0; i < shift; i++) {
-            output &= A_FILE;
-            output = pushLeft(output, 1);
-        }
-        return output;
-    }
-
-    public static long pushUpOff(long input, int shift) {
-        if (shift > 63) {
-            return 0l;
-        }
-        if (shift < 0) {
-            return pushDownOff(input, -shift);
-        }
-        long output = input;
-        for (int i = 0; i < shift; i++) {
-            output &= RANK_8;
-            output = pushUp(output, 1);
-        }
-        return output;
-    }
-
-    public static long pushDownOff(long input, int shift) {
-        if (shift > 63) {
-            return 0l;
-        }
-        if (shift < 0) {
-            return pushUpOff(input, -shift);
-        }
-        long output = input;
-        for (int i = 0; i < shift; i++) {
-            output &= RANK_1;
-            output = pushDown(output, 1);
-        }
-        return output;
-    }
-
-    public static long pushOff(long input, int rightShift, int upShift) {
-        long output = pushRightOff(input, rightShift);
-        output = pushUpOff(output, upShift);
-        return output;
     }
 
     public static long pushRight(long input, int shift) {
