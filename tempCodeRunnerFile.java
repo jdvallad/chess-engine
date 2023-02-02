@@ -1,1 +1,1 @@
-        game.printLegalMoves();
+key

@@ -1,6 +1,7 @@
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 
 import javax.print.attribute.standard.Destination;
 import javax.swing.border.EmptyBorder;
@@ -150,16 +151,20 @@ public class ChessNew {
         System.out.println("\r\n╹⎯⎯⎯╹⎯⎯⎯╹⎯⎯⎯╹⎯⎯⎯╹⎯⎯⎯╹⎯⎯⎯╹⎯⎯⎯╹⎯⎯⎯╹");
     }
 
+    public String getStringMove(short move) {
+        long startingSquare = getStartingSquare(move);
+        long endingSquare = getEndingSquare(move);
+        char startingFile = (char) ('a' + getFileIndex(startingSquare));
+        char startingRank = (char) ('1' + getRankIndex(startingSquare));
+        char endingFile = (char) ('a' + getFileIndex(endingSquare));
+        char endingRank = (char) ('1' + getRankIndex(endingSquare));
+        return "" + startingFile + startingRank + endingFile + endingRank;
+    }
+
     public void printLegalMoves() {
         System.out.print("[");
         for (short move : legalMoves) {
-            long startingSquare = getStartingSquare(move);
-            long endingSquare = getEndingSquare(move);
-            char startingFile = (char) ('a' + getFileIndex(startingSquare));
-            char startingRank = (char) ('1' + getRankIndex(startingSquare));
-            char endingFile = (char) ('a' + getFileIndex(endingSquare));
-            char endingRank = (char) ('1' + getRankIndex(endingSquare));
-            System.out.print("" + startingFile + startingRank + endingFile + endingRank + ", ");
+            System.out.print("" + getStringMove(move) + ", ");
         }
         System.out.println("]");
     }
@@ -587,25 +592,53 @@ public class ChessNew {
                 if (inCheck) {
                     continue;
                 }
-                int offset = (getEndingSquare(move) == ROOK_STARTING_FILES[QUEENSIDE]) ? 1 : -1;
-                pieceBoards[turn][KING] = pushLeft(pieceBoards[turn][KING], offset);
-                if (calculateInCheck()) {
-                    pieceBoards[turn][KING] = pushRight(pieceBoards[turn][KING], offset);
-                    continue;
+                boolean kingSideCastle = (getEndingSquare(move) == ROOK_STARTING_FILES[KINGSIDE]);
+                long king = pieceBoards[turn][KING];
+                if (kingSideCastle) {
+                    long swapSquare = e(king);
+                    swap(king, swapSquare);
+                    if (calculateInCheck()) {
+                        swap(king, swapSquare);
+                        continue;
+                    }
+                    swap(king, swapSquare);
+                    swapSquare = e(king);
+                    swap(king, swapSquare);
+                    if (calculateInCheck()) {
+                        swap(king, swapSquare);
+                        continue;
+                    }
+                    swap(king, swapSquare);
+                    this.makeShallowMove(move);
+                    turn ^= 1;
+                    if (!calculateInCheck()) {
+                        legalMoves.add(move);
+                    }
+                    turn ^= 1;
+                    simpleUndoReversibleMove();
+                } else {
+                    long swapSquare = w(king);
+                    swap(king, swapSquare);
+                    if (calculateInCheck()) {
+                        swap(king, swapSquare);
+                        continue;
+                    }
+                    swap(king, swapSquare);
+                    swapSquare = w(king);
+                    swap(king, swapSquare);
+                    if (calculateInCheck()) {
+                        swap(king, swapSquare);
+                        continue;
+                    }
+                    swap(king, swapSquare);
+                    this.makeShallowMove(move);
+                    turn ^= 1;
+                    if (!calculateInCheck()) {
+                        legalMoves.add(move);
+                    }
+                    turn ^= 1;
+                    simpleUndoReversibleMove();
                 }
-                pieceBoards[turn][KING] = pushLeft(pieceBoards[turn][KING], offset);
-                if (calculateInCheck()) {
-                    pieceBoards[turn][KING] = pushRight(pieceBoards[turn][KING], 2 * offset);
-                    continue;
-                }
-                pieceBoards[turn][KING] = pushRight(pieceBoards[turn][KING], 2 * offset);
-                this.makeShallowMove(move);
-                turn ^= 1;
-                if (!calculateInCheck()) {
-                    legalMoves.add(move);
-                }
-                turn ^= 1;
-                simpleUndoReversibleMove();
             }
         }
         if (legalMoves.size() == 0) {
@@ -618,7 +651,6 @@ public class ChessNew {
         long king = pieceBoards[turn][KING];
         turn ^= 1; // switch turn
         updatePseudoLegalMoves();
-        printPseudoLegalMoves(turn);
         for (short move : pseudoLegalMoves[this.turn]) { // moves your opponent could make if it was their turn
             if (getEndingSquare(move) == king) { // any of your opponents move capture your king
                 turn ^= 1;
@@ -629,14 +661,36 @@ public class ChessNew {
         return false;
     }
 
+    public long Perft(int depth, boolean print, Map<Short, Long> map) {
+        List<Short> moves = new ArrayList<>(legalMoves);
+        int n_moves, i;
+        int nodes = 0;
+        if (depth == 0)
+            return 1;
+        n_moves = moves.size();
+        for (i = 0; i < n_moves; i++) {
+            makeMove(moves.get(i));
+            long l = Perft(depth - 1, false, map);
+            nodes += l;
+            if (print)
+                map.put(moves.get(i), l);
+            extendedUndoReversibleMove();
+        }
+        if (print) {
+            System.out.println("Moves: " + n_moves);
+            System.out.println("Nodes: " + nodes);
+        }
+        return nodes;
+    }
+
     public void updatePseudoLegalMoves() {
         addPseudoLegalPawnMoves();
         addPseudoLegalKnightMoves();
         addPseudoLegalBishopMoves();
-         addPseudoLegalRookMoves();
-         addPseudoLegalQueenMoves();
-         addPseudoLegalKingMoves();
-         addPseudoLegalCastleMoves();
+        addPseudoLegalRookMoves();
+        addPseudoLegalQueenMoves();
+        addPseudoLegalKingMoves();
+        addPseudoLegalCastleMoves();
         return;
     }
 
@@ -646,8 +700,8 @@ public class ChessNew {
                                                                                             // square
         long emptySquares = pieceBoards[WHITE][EMPTY];
 
-        startingPawns = pushUp(startingPawns, offset) & emptySquares; // advance the pawns one square
-        startingPawns = pushUp(startingPawns, offset) & emptySquares; // advance the pawns one square
+        startingPawns = n(startingPawns,offset) & emptySquares; // advance the pawns one square
+        startingPawns = n(startingPawns, offset) & emptySquares; // advance the pawns one square
         long endingSquare = 0l;
         long startingSquare = 0l;
         short move = 0;
@@ -657,7 +711,7 @@ public class ChessNew {
                 if (endingSquare == 0) {
                     continue;
                 }
-                startingSquare = pushDown(endingSquare, 2 * offset);
+                startingSquare = s(endingSquare, 2 * offset);
                 move = encodeMove(startingSquare, endingSquare, 0, FLAG_STANDARD);
                 pseudoLegalMoves[turn].add(move);
             }
@@ -665,14 +719,14 @@ public class ChessNew {
 
         startingPawns = pieceBoards[turn][PAWN];
         emptySquares = pieceBoards[WHITE][EMPTY];
-        startingPawns = pushUp(startingPawns, offset) & emptySquares;
+        startingPawns = n(startingPawns, offset) & emptySquares;
         for (long file : FILES) { // this loop adds single move pawns
             for (long rank : RANKS) {
                 endingSquare = file & rank & startingPawns;
                 if (endingSquare == 0) {
                     continue;
                 }
-                startingSquare = pushDown(endingSquare, offset);
+                startingSquare = s(endingSquare, offset);
                 if (endingSquare == getBackRank(turn ^ 1)) {
                     for (int piece : PROMOTION_PIECES) {
                         move = encodeMove(startingSquare, endingSquare, piece, FLAG_PROMOTION);
@@ -687,16 +741,16 @@ public class ChessNew {
 
         startingPawns = pieceBoards[turn][PAWN];
         emptySquares = pieceBoards[WHITE][EMPTY];
-        startingPawns = pushUp(startingPawns, offset);
-        startingPawns = pushRight(startingPawns, 1) & (combinedBoards[turn ^ 1] | enPassantSquare);
+        startingPawns = n(startingPawns, offset);
+        startingPawns = e(startingPawns, 1) & (combinedBoards[turn ^ 1] | enPassantSquare);
         for (long file : FILES) { // this loop adds pawn captures towards the H-file
             for (long rank : RANKS) {
                 endingSquare = file & rank & startingPawns;
                 if (endingSquare == 0) {
                     continue;
                 }
-                startingSquare = pushDown(endingSquare, offset);
-                startingSquare = pushLeft(startingSquare, 1);
+                startingSquare = s(endingSquare, offset);
+                startingSquare = w(startingSquare, 1);
                 if (endingSquare == getBackRank(turn ^ 1)) {
                     for (int piece : PROMOTION_PIECES) {
                         move = encodeMove(startingSquare, endingSquare, piece, FLAG_PROMOTION);
@@ -714,16 +768,16 @@ public class ChessNew {
 
         startingPawns = pieceBoards[turn][PAWN];
         emptySquares = pieceBoards[WHITE][EMPTY];
-        startingPawns = pushUp(startingPawns, offset);
-        startingPawns = pushRight(startingPawns, -1) & (combinedBoards[turn ^ 1] | enPassantSquare);
+        startingPawns = n(startingPawns, offset);
+        startingPawns = w(startingPawns, 1) & (combinedBoards[turn ^ 1] | enPassantSquare);
         for (long file : FILES) { // this loop adds pawn captures towards the A-file
             for (long rank : RANKS) {
                 endingSquare = file & rank & startingPawns;
                 if (endingSquare == 0) {
                     continue;
                 }
-                startingSquare = pushDown(endingSquare, offset);
-                startingSquare = pushLeft(startingSquare, -1);
+                startingSquare = s(endingSquare, offset);
+                startingSquare = e(startingSquare, 1);
                 if (endingSquare == getBackRank(turn ^ 1)) {
                     for (int piece : PROMOTION_PIECES) {
                         move = encodeMove(startingSquare, endingSquare, piece, FLAG_PROMOTION);
@@ -881,20 +935,23 @@ public class ChessNew {
     public void addPseudoLegalKingMoves() {
         long kings = pieceBoards[turn][KING];
         long possibleSquares = combinedBoards[turn ^ 1] | pieceBoards[WHITE][EMPTY];
-        for (long rank : RANKS) {
-            for (long file : FILES) {
-                long destinationSquare = rank & file & possibleSquares;
-                if (destinationSquare == 0) {
-                    continue;
-                }
-                short move = encodeMove(kings, destinationSquare, 0, FLAG_STANDARD);
+        for (int offset : ROOK_OFFSETS) {
+            long destinationSquare = compass(kings, offset) & possibleSquares;
+            if (destinationSquare != 0) {
+                short move = encodeMove(kings, destinationSquare, 0, FLAG_PROMOTION);
                 if (!pseudoLegalMoves[turn].contains(move)) {
                     pseudoLegalMoves[turn].add(move);
                 }
             }
         }
-        for(int offset : ROOK_OFFSETS){
-            long destinationSquare = compass(kings,offset) & possibleSquares;
+        for (int offset : BISHOP_OFFSETS) {
+            long destinationSquare = compass(kings, offset) & possibleSquares;
+            if (destinationSquare != 0) {
+                short move = encodeMove(kings, destinationSquare, 0, FLAG_PROMOTION);
+                if (!pseudoLegalMoves[turn].contains(move)) {
+                    pseudoLegalMoves[turn].add(move);
+                }
+            }
         }
         return;
     }
@@ -902,7 +959,7 @@ public class ChessNew {
     public void addPseudoLegalCastleMoves() {
         long kings = pieceBoards[turn][KING];
         long gap = 0;
-        long combined = combinedBoards[turn] & combinedBoards[turn ^ 1];
+        long combined = combinedBoards[turn] | combinedBoards[turn ^ 1];
         if (castleRights[turn][KINGSIDE]) {
             gap = (e(kings) | e(e(kings))) & combined; // space from king to rook empty
             if (gap == 0) {
@@ -1290,6 +1347,11 @@ public class ChessNew {
         return result;
     }
 
+    public static long compass(long input, int east, int north) {
+        int offset = encodeDirection(east, north);
+        return compass(input, offset);
+    }
+
     public static int encodeDirection(int east, int north) {
         int output = 0;
         if (east < 0) {
@@ -1307,6 +1369,26 @@ public class ChessNew {
 
     public static long n(long input) {
         return (input & ~RANK_8) << 8;
+    }
+
+    public static long n(long input, int count) {
+        int offset = encodeDirection(0, count);
+        return compass(input, offset);
+    }
+
+    public static long s(long input, int count) {
+        int offset = encodeDirection(0, -count);
+        return compass(input, offset);
+    }
+
+    public static long e(long input, int count) {
+        int offset = encodeDirection(count, 0);
+        return compass(input, offset);
+    }
+
+    public static long w(long input, int count) {
+        int offset = encodeDirection(-count, 0);
+        return compass(input, offset);
     }
 
     public static long s(long input) {

@@ -1,15 +1,23 @@
+import java.util.HashMap;
+import java.util.Map;
 
 public class Driver {
 
     public static void main(String[] args) throws Exception {
         ChessNew game = new ChessNew();
-        System.out.println(game.inCheck);
-        game.printLegalMoves();
-        short move = game.legalMoves.get(3);
+        short move = 0;
+        for (short temp : game.legalMoves) {
+            if (game.getStringMove(temp).equals("a2a3")) {
+                move = temp;
+                break;
+            }
+        }
         game.makeMove(move);
-        move = game.legalMoves.get(3);
-        game.makeMove(move);
-        game.printLegalMoves();
         game.print();
+        Map<Short, Long> wow = new HashMap<>();
+        game.Perft(3, true, wow);
+        for (short key : wow.keySet()) {
+            System.out.println("" + game.getStringMove(key) + ": " + wow.get(key));
+        }
     }
 }
