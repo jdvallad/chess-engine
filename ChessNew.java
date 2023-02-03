@@ -77,8 +77,8 @@ public class ChessNew {
     public static final int[] SIDES_REVERSED = new int[] { KINGSIDE, QUEENSIDE };
     public static final long[][] DEFAULT_PIECEBOARDS = new long[][] {
             { 8l, 66l, 36l, 129l, 16l, 65280l, 281474976645120l },
-            { 1152921504606846976l, 4755801206503243776l, 2594073385365405696l,
-                    -9151314442816847872l, 576460752303423488l,
+            { 576460752303423488l, 4755801206503243776l, 2594073385365405696l,
+                    -9151314442816847872l, 1152921504606846976l,
                     71776119061217280l, 0l }
     };
     public static final long[] ROOK_STARTING_FILES = new long[] { A_FILE, H_FILE };
@@ -169,9 +169,9 @@ public class ChessNew {
         System.out.println("]");
     }
 
-    public void printPseudoLegalMoves(int turn) {
+    public void printPseudoLegalMoves(int wow) {
         System.out.print("[");
-        for (short move : pseudoLegalMoves[turn]) {
+        for (short move : pseudoLegalMoves[wow]) {
             long startingSquare = getStartingSquare(move);
             long endingSquare = getEndingSquare(move);
             char startingFile = (char) ('a' + getFileIndex(startingSquare));
@@ -213,6 +213,21 @@ public class ChessNew {
         }
         makeShallowMove(move);
         updateLegalMoves();
+    }
+
+    public void makeMove(String moveString) throws Exception {
+        short move = 0;
+        for (short temp : legalMoves) {
+            if (getStringMove(temp).equals(moveString)) {
+                move = temp;
+                break;
+            }
+        }
+        if (move == 0) {
+            throw new Exception("Move not found");
+        } else {
+            makeMove(move);
+        }
     }
 
     public void makeShallowMove(short move) {
@@ -353,6 +368,7 @@ public class ChessNew {
         int startingSquareOffset = 0; // 6 bits
         long endingSquare = 0l;
         long startingSquare = 0l;
+
         long input = reversibleMoves.remove(reversibleMoves.size() - 1);
         long push = 0;
         for (int color : COLORS_REVERSED) {
@@ -432,6 +448,8 @@ public class ChessNew {
         startingSquare = pushRight(1l, startingSquareOffset);
         input = pushLeft(input, 6);
 
+        remove(startingSquare);
+        remove(endingSquare);
         add(startingSquare, startingColor, startingPiece);
         add(endingSquare, endingColor, endingPiece);
         switch (flag) {
@@ -460,6 +478,7 @@ public class ChessNew {
     }
 
     public void extendedUndoReversibleMove() {
+        this.gameOver = false;
         simpleUndoReversibleMove();
         updateLegalMoves();
     }
@@ -652,6 +671,14 @@ public class ChessNew {
         turn ^= 1; // switch turn
         updatePseudoLegalMoves();
         for (short move : pseudoLegalMoves[this.turn]) { // moves your opponent could make if it was their turn
+            if (getStringMove(move).equals("b5e8")) {
+                System.out.println("wow");
+                for (StackTraceElement ste : Thread.currentThread().getStackTrace()) {
+                    System.out.println(ste + "\n");
+                }
+             
+                print();
+            }
             if (getEndingSquare(move) == king) { // any of your opponents move capture your king
                 turn ^= 1;
                 return true;
@@ -700,7 +727,7 @@ public class ChessNew {
                                                                                             // square
         long emptySquares = pieceBoards[WHITE][EMPTY];
 
-        startingPawns = n(startingPawns,offset) & emptySquares; // advance the pawns one square
+        startingPawns = n(startingPawns, offset) & emptySquares; // advance the pawns one square
         startingPawns = n(startingPawns, offset) & emptySquares; // advance the pawns one square
         long endingSquare = 0l;
         long startingSquare = 0l;
@@ -713,7 +740,9 @@ public class ChessNew {
                 }
                 startingSquare = s(endingSquare, 2 * offset);
                 move = encodeMove(startingSquare, endingSquare, 0, FLAG_STANDARD);
-                pseudoLegalMoves[turn].add(move);
+                if (!pseudoLegalMoves[turn].contains(move)) {
+                    pseudoLegalMoves[turn].add(move);
+                }
             }
         }
 
@@ -730,11 +759,15 @@ public class ChessNew {
                 if (endingSquare == getBackRank(turn ^ 1)) {
                     for (int piece : PROMOTION_PIECES) {
                         move = encodeMove(startingSquare, endingSquare, piece, FLAG_PROMOTION);
-                        pseudoLegalMoves[turn].add(move);
+                        if (!pseudoLegalMoves[turn].contains(move)) {
+                            pseudoLegalMoves[turn].add(move);
+                        }
                     }
                 } else {
                     move = encodeMove(startingSquare, endingSquare, 0, FLAG_STANDARD);
-                    pseudoLegalMoves[turn].add(move);
+                    if (!pseudoLegalMoves[turn].contains(move)) {
+                        pseudoLegalMoves[turn].add(move);
+                    }
                 }
             }
         }
@@ -754,14 +787,20 @@ public class ChessNew {
                 if (endingSquare == getBackRank(turn ^ 1)) {
                     for (int piece : PROMOTION_PIECES) {
                         move = encodeMove(startingSquare, endingSquare, piece, FLAG_PROMOTION);
-                        pseudoLegalMoves[turn].add(move);
+                        if (!pseudoLegalMoves[turn].contains(move)) {
+                            pseudoLegalMoves[turn].add(move);
+                        }
                     }
                 } else if (endingSquare == enPassantSquare) {
                     move = encodeMove(startingSquare, endingSquare, 0, FLAG_EN_PASSANT);
-
+                    if (!pseudoLegalMoves[turn].contains(move)) {
+                        pseudoLegalMoves[turn].add(move);
+                    }
                 } else {
                     move = encodeMove(startingSquare, endingSquare, 0, FLAG_STANDARD);
-                    pseudoLegalMoves[turn].add(move);
+                    if (!pseudoLegalMoves[turn].contains(move)) {
+                        pseudoLegalMoves[turn].add(move);
+                    }
                 }
             }
         }
@@ -781,14 +820,20 @@ public class ChessNew {
                 if (endingSquare == getBackRank(turn ^ 1)) {
                     for (int piece : PROMOTION_PIECES) {
                         move = encodeMove(startingSquare, endingSquare, piece, FLAG_PROMOTION);
-                        pseudoLegalMoves[turn].add(move);
+                        if (!pseudoLegalMoves[turn].contains(move)) {
+                            pseudoLegalMoves[turn].add(move);
+                        }
                     }
                 } else if (endingSquare == enPassantSquare) {
                     move = encodeMove(startingSquare, endingSquare, 0, FLAG_EN_PASSANT);
-
+                    if (!pseudoLegalMoves[turn].contains(move)) {
+                        pseudoLegalMoves[turn].add(move);
+                    }
                 } else {
                     move = encodeMove(startingSquare, endingSquare, 0, FLAG_STANDARD);
-                    pseudoLegalMoves[turn].add(move);
+                    if (!pseudoLegalMoves[turn].contains(move)) {
+                        pseudoLegalMoves[turn].add(move);
+                    }
                 }
             }
         }
@@ -840,6 +885,7 @@ public class ChessNew {
                     while (destinationSquare != 0 && (destinationSquare & combined) == 0) {
                         short move = encodeMove(startingSquare, destinationSquare, 0, FLAG_STANDARD);
                         if (!pseudoLegalMoves[turn].contains(move)) {
+
                             pseudoLegalMoves[turn].add(move);
                         }
                         destinationSquare = compass(destinationSquare, offset);
@@ -1207,10 +1253,8 @@ public class ChessNew {
             stringIndex++;
             pointer = fen.charAt(stringIndex);
         }
-        stringIndex++;
-        pointer = fen.charAt(stringIndex);
         turn = (pointer == 'w') ? WHITE : BLACK;
-        stringIndex++;
+        stringIndex += 2;
         pointer = fen.charAt(stringIndex);
         if (pointer == '-') {
             for (int color : COLORS) {
