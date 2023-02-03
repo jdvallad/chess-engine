@@ -1,5 +1,6 @@
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -213,6 +214,17 @@ public class ChessNew {
         }
         makeShallowMove(move);
         updateLegalMoves();
+    }
+
+    public short getMoveShort(String moveString) {
+        short move = 0;
+        for (short temp : legalMoves) {
+            if (getStringMove(temp).equals(moveString)) {
+                move = temp;
+                break;
+            }
+        }
+        return move;
     }
 
     public void makeMove(String moveString) throws Exception {
@@ -611,7 +623,7 @@ public class ChessNew {
                 if (inCheck) {
                     continue;
                 }
-                boolean kingSideCastle = (getEndingSquare(move) == ROOK_STARTING_FILES[KINGSIDE]);
+                boolean kingSideCastle = ((getEndingSquare(move) & ROOK_STARTING_FILES[KINGSIDE]) != 0);
                 long king = pieceBoards[turn][KING];
                 if (kingSideCastle) {
                     long swapSquare = e(king);
@@ -671,14 +683,6 @@ public class ChessNew {
         turn ^= 1; // switch turn
         updatePseudoLegalMoves();
         for (short move : pseudoLegalMoves[this.turn]) { // moves your opponent could make if it was their turn
-            if (getStringMove(move).equals("b5e8")) {
-                System.out.println("wow");
-                for (StackTraceElement ste : Thread.currentThread().getStackTrace()) {
-                    System.out.println(ste + "\n");
-                }
-             
-                print();
-            }
             if (getEndingSquare(move) == king) { // any of your opponents move capture your king
                 turn ^= 1;
                 return true;
@@ -688,7 +692,22 @@ public class ChessNew {
         return false;
     }
 
-    public long Perft(int depth, boolean print, Map<Short, Long> map) {
+    public long Perft(int depth, boolean print) {
+        if (print) {
+            Map<Short, Long> theMap = new HashMap<>();
+            long output = Perft(depth, theMap, true);
+            for (short key : theMap.keySet()) {
+                System.out.println("" + getStringMove(key) + ": " + theMap.get(key));
+            }
+            System.out.println("Nodes searched: " + output);
+            System.out.println();
+            return output;
+        } else {
+            return Perft(depth);
+        }
+    }
+
+    public long Perft(int depth, Map<Short, Long> map, boolean topCall) {
         List<Short> moves = new ArrayList<>(legalMoves);
         int n_moves, i;
         int nodes = 0;
@@ -697,20 +716,35 @@ public class ChessNew {
         n_moves = moves.size();
         for (i = 0; i < n_moves; i++) {
             makeMove(moves.get(i));
-            long l = Perft(depth - 1, false, map);
+            long l = Perft(depth - 1, map, false);
             nodes += l;
-            if (print)
+            if (topCall) {
                 map.put(moves.get(i), l);
+            }
             extendedUndoReversibleMove();
         }
-        if (print) {
-            System.out.println("Moves: " + n_moves);
-            System.out.println("Nodes: " + nodes);
+
+        return nodes;
+    }
+
+    public long Perft(int depth) {
+        List<Short> moves = new ArrayList<>(legalMoves);
+        int n_moves, i;
+        int nodes = 0;
+        if (depth == 0)
+            return 1;
+        n_moves = moves.size();
+        for (i = 0; i < n_moves; i++) {
+            makeMove(moves.get(i));
+            long l = Perft(depth - 1);
+            nodes += l;
+            extendedUndoReversibleMove();
         }
         return nodes;
     }
 
     public void updatePseudoLegalMoves() {
+        pseudoLegalMoves[turn].clear();
         addPseudoLegalPawnMoves();
         addPseudoLegalKnightMoves();
         addPseudoLegalBishopMoves();
@@ -984,7 +1018,7 @@ public class ChessNew {
         for (int offset : ROOK_OFFSETS) {
             long destinationSquare = compass(kings, offset) & possibleSquares;
             if (destinationSquare != 0) {
-                short move = encodeMove(kings, destinationSquare, 0, FLAG_PROMOTION);
+                short move = encodeMove(kings, destinationSquare, 0, FLAG_STANDARD);
                 if (!pseudoLegalMoves[turn].contains(move)) {
                     pseudoLegalMoves[turn].add(move);
                 }
@@ -993,7 +1027,7 @@ public class ChessNew {
         for (int offset : BISHOP_OFFSETS) {
             long destinationSquare = compass(kings, offset) & possibleSquares;
             if (destinationSquare != 0) {
-                short move = encodeMove(kings, destinationSquare, 0, FLAG_PROMOTION);
+                short move = encodeMove(kings, destinationSquare, 0, FLAG_STANDARD);
                 if (!pseudoLegalMoves[turn].contains(move)) {
                     pseudoLegalMoves[turn].add(move);
                 }
@@ -1010,7 +1044,7 @@ public class ChessNew {
             gap = (e(kings) | e(e(kings))) & combined; // space from king to rook empty
             if (gap == 0) {
                 long destinationSquare = e(e(e(kings)));
-                short move = encodeMove(kings, destinationSquare, 0, FLAG_PROMOTION);
+                short move = encodeMove(kings, destinationSquare, 0, FLAG_CASTLE);
                 if (!pseudoLegalMoves[turn].contains(move)) {
                     pseudoLegalMoves[turn].add(move);
                 }
@@ -1020,7 +1054,7 @@ public class ChessNew {
             gap = (w(kings) | w(w(kings)) | w(w(w(kings)))) & combined; // space from king to rook empty
             if (gap == 0) {
                 long destinationSquare = w(w(w(w(kings))));
-                short move = encodeMove(kings, destinationSquare, 0, FLAG_PROMOTION);
+                short move = encodeMove(kings, destinationSquare, 0, FLAG_CASTLE);
                 if (!pseudoLegalMoves[turn].contains(move)) {
                     pseudoLegalMoves[turn].add(move);
                 }
