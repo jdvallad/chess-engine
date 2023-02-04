@@ -1,15 +1,40 @@
-import java.util.HashMap;
-import java.util.Map;
+import java.util.Scanner;
 
 public class Driver {
 
     public static void main(String[] args) throws Exception {
-        long startTime = System.nanoTime();
+        boolean ascii = false;
         Chess game = new Chess();
-        game.setFromFen("n1n5/PPPk4/8/8/8/8/4Kppp/5N1N b - - 0 1");
-        game.Perft(4, true);
-        long endTime = System.nanoTime();
-        long duration = (endTime - startTime); // divide by 1000000 to get milliseconds.
-        System.out.println("This took " + duration + " nanoseconds.");
+        game.print(ascii);
+        Scanner input = new Scanner(System.in);
+        String move = input.next().toLowerCase();
+        while (!move.equals("quit") && !move.equals("exit")) {
+            switch(move){
+                default:
+            }
+            if (game.move(move)) {
+                int numLegalMoves = game.legalMoves.size();
+                if (game.gameOver) {
+                    System.out.println("\033c");
+                    game.print(ascii);
+                    System.out.println("Game over.");
+                    input.close();
+                    return;
+                }
+                int random = (int) (Math.random() * (double) numLegalMoves);
+                game.move(game.legalMoves.get(random));
+                if (game.gameOver) {
+                    System.out.println("\033c");
+                    game.print(ascii);
+                    System.out.println("Game over.");
+                    input.close();
+                    return;
+                }
+                game.print(ascii);
+            }
+            move = input.next().toLowerCase();
+        }
+        input.close();
+        return;
     }
 }

@@ -138,6 +138,9 @@ public class Chess {
                     for (int piece : PIECES) {
                         if ((pieceBoards[color][piece] & square) == square) {
                             System.out.print(" " + PIECE_CHARS_UNICODE[color][piece] + " │");
+                            if (file == H_FILE) {
+                                System.out.print(" " + (1 + getRankIndex(rank & file)));
+                            }
                             continue foundPiece;
                         }
                     }
@@ -145,6 +148,7 @@ public class Chess {
             }
         }
         System.out.println("\r\n╹⎯⎯⎯╹⎯⎯⎯╹⎯⎯⎯╹⎯⎯⎯╹⎯⎯⎯╹⎯⎯⎯╹⎯⎯⎯╹⎯⎯⎯╹");
+        System.out.println("  a   b   c   d   e   f   g   h");
     }
 
     public String getMoveString(short move) {
@@ -185,6 +189,22 @@ public class Chess {
         System.out.println("]");
     }
 
+    public void print(boolean ascii){
+        if(ascii){
+            printSimple();
+        } else {
+            print();
+        }
+    }
+
+    public boolean isLegalMove(String move){
+        for (short temp : legalMoves) {
+            if (getMoveString(temp).equals(move)) {
+               return true;
+            }
+        }
+        return false;
+    }
     public void printSimple() {
         boolean flag = false;
         System.out.print("\r\n|---|---|---|---|---|---|---|---|\r\n|");
@@ -199,6 +219,9 @@ public class Chess {
                     for (int piece : PIECES) {
                         if ((pieceBoards[color][piece] & square) == square) {
                             System.out.print(" " + PIECE_CHARS_ASCII[color][piece] + " |");
+                            if (file == H_FILE) {
+                                System.out.print(" " + (1 + getRankIndex(rank & file)));
+                            }
                             continue foundPiece;
                         }
                     }
@@ -206,13 +229,38 @@ public class Chess {
             }
         }
         System.out.println("\r\n|---|---|---|---|---|---|---|---|\r\n");
+        System.out.println("  a   b   c   d   e   f   g   h");
+    }
 
+    public boolean move(String moveString) throws Exception {
+        short move = 0;
+        for (short temp : legalMoves) {
+            if (getMoveString(temp).equals(moveString)) {
+                move = temp;
+                break;
+            }
+        }
+        if (move == 0) {
+            System.out.println("Not a valid move.");
+            return false;
+        } else {
+            makeMove(move);
+            return true;
+        }
+    }
+
+    public boolean move(short moveShort) throws Exception {
+        if (legalMoves.contains(moveShort)) {
+            makeMove(moveShort);
+            return true;
+        } else {
+            System.out.println("Not a valid move.");
+            return false;
+        }
     }
 
     public void makeMove(short move) throws Exception {
         if (!legalMoves.contains(move)) {
-            print();
-            printPastMoves();
             throw new Exception(getMoveString(move) + " is not a valid move!");
         }
         makeShallowMove(move);
@@ -1088,14 +1136,6 @@ public class Chess {
         int startColor = getColor(start);
         remove(start);
         add(end, startColor, startPiece);
-    }
-
-    public void move(String start, String end) {
-        move(create(start), create(end));
-    }
-
-    public void move(String move) {
-        move(move.substring(0, 2), move.substring(2));
     }
 
     public void swap(long start, long end) {
