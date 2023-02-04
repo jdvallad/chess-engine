@@ -124,13 +124,18 @@ public class Chess {
         updateLegalMoves();
     }
 
-    public void print(boolean ascii, boolean flipped){
-        if(ascii){
+    public void print(boolean ascii, boolean flipped) {
+        if (ascii) {
             printSimple(flipped);
-        } else{
+        } else {
             print(flipped);
         }
     }
+
+    public void print(){
+        print(false);
+    }
+    
     public void print(boolean flipped) {
         boolean flag = false;
         System.out.print("                                ");
@@ -199,30 +204,32 @@ public class Chess {
     public void printLegalMoves() {
         System.out.print("[");
         boolean flag = false;
-        for (int i = 0; i < legalMoves.size(); i++) {
+        for (short move : legalMoves) {
             if (flag) {
                 System.out.print(", ");
             }
             flag = true;
-            if ((i + 1) % 17 == 0) {
-                System.out.println();
-            }
-            System.out.print(getMoveString(legalMoves.get(i)) + "");
+            System.out.print(getMoveString(move) + "");
         }
 
         System.out.println("]");
     }
 
-    public void printPseudoLegalMoves(int wow) {
+    public void printPseudoLegalMoves(int turn) {
         System.out.print("[");
-        for (short move : pseudoLegalMoves[wow]) {
+        boolean flag = false;
+        for (short move : pseudoLegalMoves[turn]) {
+            if (flag) {
+                System.out.print(", ");
+            }
+            flag = true;
             long startingSquare = getStartingSquare(move);
             long endingSquare = getEndingSquare(move);
             char startingFile = (char) ('a' + getFileIndex(startingSquare));
             char startingRank = (char) ('1' + getRankIndex(startingSquare));
             char endingFile = (char) ('a' + getFileIndex(endingSquare));
             char endingRank = (char) ('1' + getRankIndex(endingSquare));
-            System.out.print("" + startingFile + startingRank + endingFile + endingRank + ", ");
+            System.out.print("" + startingFile + startingRank + endingFile + endingRank);
         }
         System.out.println("]");
     }
@@ -235,6 +242,7 @@ public class Chess {
         }
         return false;
     }
+
     public void printSimple(boolean flipped) {
         boolean flag = false;
         System.out.print("                                ");
@@ -1478,7 +1486,10 @@ public class Chess {
         stringIndex++;
         temp = fen.substring(stringIndex);
         fullMoveCount = Integer.parseInt(temp);
+        reversibleMoves.clear();
+        shortenedFenList.clear();
         updateLegalMoves();
+        shortenedFenList.add(getShortenedFen());
         return;
     }
 
