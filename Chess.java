@@ -124,21 +124,41 @@ public class Chess {
         updateLegalMoves();
     }
 
-    public void print() {
+    public void print(boolean flipped) {
         boolean flag = false;
-        System.out.print("\r\n╻⎯⎯⎯╻⎯⎯⎯╻⎯⎯⎯╻⎯⎯⎯╻⎯⎯⎯╻⎯⎯⎯╻⎯⎯⎯╻⎯⎯⎯╻\r\n│");
-        for (long rank : RANKS_REVERSED) {
+        System.out.print("                                ");
+        if (!flipped) {
+            System.out.println("  a   b   c   d   e   f   g   h");
+        } else {
+            System.out.println("  h   g   f   e   d   c   b   a");
+
+        }
+        System.out.print("                                ");
+        System.out.println("╻⎯⎯⎯╻⎯⎯⎯╻⎯⎯⎯╻⎯⎯⎯╻⎯⎯⎯╻⎯⎯⎯╻⎯⎯⎯╻⎯⎯⎯╻");
+        System.out.print("                              ");
+        if (!flipped) {
+            System.out.print("8 ");
+        } else {
+            System.out.print("1 ");
+
+        }
+        System.out.print("│");
+        for (long rank : (flipped ? RANKS : RANKS_REVERSED)) {
             if (flag) {
-                System.out.print("\r\n│⎯⎯⎯│⎯⎯⎯│⎯⎯⎯│⎯⎯⎯│⎯⎯⎯│⎯⎯⎯│⎯⎯⎯│⎯⎯⎯│\r\n│");
+                System.out.print("\r\n                                ");
+                System.out.println("│⎯⎯⎯│⎯⎯⎯│⎯⎯⎯│⎯⎯⎯│⎯⎯⎯│⎯⎯⎯│⎯⎯⎯│⎯⎯⎯│");
+                System.out.print("                              ");
+                System.out.print("" + (1 + getRankIndex(rank & A_FILE)) + " ");
+                System.out.print("│");
             }
             flag = true;
-            foundPiece: for (long file : FILES) {
+            foundPiece: for (long file : (flipped ? FILES_REVERSED : FILES)) {
                 long square = rank & file;
                 for (int color : COLORS) {
                     for (int piece : PIECES) {
                         if ((pieceBoards[color][piece] & square) == square) {
                             System.out.print(" " + PIECE_CHARS_UNICODE[color][piece] + " │");
-                            if (file == H_FILE) {
+                            if (file == (flipped ? A_FILE : H_FILE)) {
                                 System.out.print(" " + (1 + getRankIndex(rank & file)));
                             }
                             continue foundPiece;
@@ -147,8 +167,10 @@ public class Chess {
                 }
             }
         }
-        System.out.println("\r\n╹⎯⎯⎯╹⎯⎯⎯╹⎯⎯⎯╹⎯⎯⎯╹⎯⎯⎯╹⎯⎯⎯╹⎯⎯⎯╹⎯⎯⎯╹");
-        System.out.println("  a   b   c   d   e   f   g   h");
+        System.out.print("\r\n                                ");
+        System.out.println("╹⎯⎯⎯╹⎯⎯⎯╹⎯⎯⎯╹⎯⎯⎯╹⎯⎯⎯╹⎯⎯⎯╹⎯⎯⎯╹⎯⎯⎯╹");
+        System.out.print("                                ");
+        System.out.println("  a   b   c   d   e   f   g   h\r\n");
     }
 
     public String getMoveString(short move) {
@@ -169,9 +191,18 @@ public class Chess {
 
     public void printLegalMoves() {
         System.out.print("[");
-        for (short move : legalMoves) {
-            System.out.print("" + getMoveString(move) + ", ");
+        boolean flag = false;
+        for (int i = 0; i < legalMoves.size(); i++) {
+            if (flag) {
+                System.out.print(", ");
+            }
+            flag = true;
+            if ((i + 1) % 17 == 0) {
+                System.out.println();
+            }
+            System.out.print(getMoveString(legalMoves.get(i)) + "");
         }
+
         System.out.println("]");
     }
 
@@ -189,22 +220,15 @@ public class Chess {
         System.out.println("]");
     }
 
-    public void print(boolean ascii){
-        if(ascii){
-            printSimple();
-        } else {
-            print();
-        }
-    }
-
-    public boolean isLegalMove(String move){
+    public boolean isLegalMove(String move) {
         for (short temp : legalMoves) {
             if (getMoveString(temp).equals(move)) {
-               return true;
+                return true;
             }
         }
         return false;
     }
+
     public void printSimple() {
         boolean flag = false;
         System.out.print("\r\n|---|---|---|---|---|---|---|---|\r\n|");
@@ -589,9 +613,13 @@ public class Chess {
         return;
     }
 
-    public void extendedUndoReversibleMove() throws Exception {
+    public void undo() throws Exception {
         simpleUndoReversibleMove();
         updateLegalMoves();
+    }
+
+    public int getLength() {
+        return reversibleMoves.size();
     }
 
     public void makePromotionMove(short move) {
@@ -784,11 +812,11 @@ public class Chess {
         return false;
     }
 
-    public long Perft(int depth) throws Exception {
-        return Perft(depth, true);
+    public long perft(int depth) throws Exception {
+        return perft(depth, true);
     }
 
-    public long Perft(int depth, boolean topCall) throws Exception {
+    public long perft(int depth, boolean topCall) throws Exception {
         List<Short> moves = new ArrayList<>(legalMoves);
         int n_moves, i;
         int nodes = 0;
@@ -797,12 +825,12 @@ public class Chess {
         n_moves = moves.size();
         for (i = 0; i < n_moves; i++) {
             makeMove(moves.get(i));
-            long l = Perft(depth - 1, false);
+            long l = perft(depth - 1, false);
             if (topCall) {
                 System.out.println("" + getMoveString(moves.get(i)) + ": " + l);
             }
             nodes += l;
-            extendedUndoReversibleMove();
+            undo();
         }
         if (topCall) {
             System.out.println("Nodes searched: " + nodes);
