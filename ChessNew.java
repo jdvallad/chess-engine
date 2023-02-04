@@ -100,7 +100,7 @@ public class ChessNew {
 
     @SuppressWarnings("unchecked")
 
-    public ChessNew() {
+    public ChessNew() throws Exception {
         turn = WHITE;
         inCheck = false;
         gameOver = false;
@@ -152,20 +152,26 @@ public class ChessNew {
         System.out.println("\r\n╹⎯⎯⎯╹⎯⎯⎯╹⎯⎯⎯╹⎯⎯⎯╹⎯⎯⎯╹⎯⎯⎯╹⎯⎯⎯╹⎯⎯⎯╹");
     }
 
-    public String getStringMove(short move) {
+    public String getMoveString(short move) {
         long startingSquare = getStartingSquare(move);
         long endingSquare = getEndingSquare(move);
+        int flag = getFlag(move);
+        int piece = getPromotion(move);
         char startingFile = (char) ('a' + getFileIndex(startingSquare));
         char startingRank = (char) ('1' + getRankIndex(startingSquare));
         char endingFile = (char) ('a' + getFileIndex(endingSquare));
         char endingRank = (char) ('1' + getRankIndex(endingSquare));
-        return "" + startingFile + startingRank + endingFile + endingRank;
+        String output = "" + startingFile + startingRank + endingFile + endingRank;
+        if (flag == FLAG_PROMOTION) {
+            output += PIECE_CHARS_ASCII[BLACK][piece];
+        }
+        return output;
     }
 
     public void printLegalMoves() {
         System.out.print("[");
         for (short move : legalMoves) {
-            System.out.print("" + getStringMove(move) + ", ");
+            System.out.print("" + getMoveString(move) + ", ");
         }
         System.out.println("]");
     }
@@ -208,9 +214,11 @@ public class ChessNew {
 
     }
 
-    public void makeMove(short move) {
+    public void makeMove(short move) throws Exception {
         if (!legalMoves.contains(move)) {
-            return;
+            print();
+            printPastMoves();
+            throw new Exception(getMoveString(move) + " is not a valid move!");
         }
         makeShallowMove(move);
         updateLegalMoves();
@@ -219,7 +227,7 @@ public class ChessNew {
     public short getMoveShort(String moveString) {
         short move = 0;
         for (short temp : legalMoves) {
-            if (getStringMove(temp).equals(moveString)) {
+            if (getMoveString(temp).equals(moveString)) {
                 move = temp;
                 break;
             }
@@ -230,7 +238,7 @@ public class ChessNew {
     public void makeMove(String moveString) throws Exception {
         short move = 0;
         for (short temp : legalMoves) {
-            if (getStringMove(temp).equals(moveString)) {
+            if (getMoveString(temp).equals(moveString)) {
                 move = temp;
                 break;
             }
@@ -242,8 +250,12 @@ public class ChessNew {
         }
     }
 
-    public void makeShallowMove(short move) {
+    public void makeShallowMove(short move) throws Exception {
+        if (!pseudoLegalMoves[turn].contains(move)) {
+            throw new Exception();
+        }
         reversibleMoves.add(encodeReversibleMove(move));
+        enPassantSquare = 0;
         switch (getFlag(move)) {
             case FLAG_PROMOTION:
                 makePromotionMove(move);
@@ -280,7 +292,7 @@ public class ChessNew {
         long startingSquareLong = getStartingSquare(move);
         int startingSquareInt = Long.numberOfTrailingZeros(startingSquareLong); // 6 bits
         int startingPiece = getPiece(startingSquareLong); // 3 bits
-        int startingColor = getColor(startingSquareLong); // 1 bit
+        boolean isInCheck = inCheck; // 1 bit
         long endingSquareLong = getEndingSquare(move);
         int endingSquareInt = Long.numberOfTrailingZeros(endingSquareLong); // 6 bits
         int endingPiece = getPiece(endingSquareLong); // 3 bits
@@ -290,6 +302,11 @@ public class ChessNew {
         // halfMoveCount (32 bits)
         // castleRights (4 bits)
         // 64 bits, a long! (niceee)
+        if (flag == FLAG_EN_PASSANT) {
+            long captureSquare = RANKS[getRankIndex(startingSquareLong)] & FILES[getFileIndex(endingSquareLong)];
+            endingPiece = getPiece(captureSquare);
+            endingColor = getColor(captureSquare);
+        }
         long output = 0;
         long push = pushRight(1l, 6 - 1);
         while (push != 0) {
@@ -307,7 +324,7 @@ public class ChessNew {
         output = pushRight(output, 1);
         push = pushRight(1l, 1 - 1);
         while (push != 0) {
-            output |= push & startingColor;
+            output |= push & (isInCheck ? 1 : 0);
             push = pushLeft(push, 1);
         }
 
@@ -367,7 +384,44 @@ public class ChessNew {
         return output;
     }
 
-    public void simpleUndoReversibleMove() {
+    public String getMoveStringReversible(long input) {
+        int endingSquareOffset = 0;
+        int startingSquareOffset = 0;
+        long endingSquare = 0l;
+        long startingSquare = 0l;
+        long push = 0;
+
+        input = pushLeft(input, 48);
+        push = pushRight(1l, 6 - 1);
+        while (push != 0) {
+            endingSquareOffset |= push & input;
+            push = pushLeft(push, 1);
+        }
+        endingSquare = pushRight(1l, endingSquareOffset);
+        input = pushLeft(input, 10);
+        push = pushRight(1l, 6 - 1);
+        while (push != 0) {
+            startingSquareOffset |= push & input;
+            push = pushLeft(push, 1);
+        }
+        startingSquare = pushRight(1l, startingSquareOffset);
+        char startingFile = (char) ('a' + getFileIndex(startingSquare));
+        char startingRank = (char) ('1' + getRankIndex(startingSquare));
+        char endingFile = (char) ('a' + getFileIndex(endingSquare));
+        char endingRank = (char) ('1' + getRankIndex(endingSquare));
+        return "" + startingFile + startingRank + endingFile + endingRank;
+    }
+
+    public void printPastMoves() {
+        System.out.print("[");
+        for (long reversibleMove : reversibleMoves) {
+            System.out.print(getMoveStringReversible(reversibleMove) + ",");
+        }
+        System.out.println("]");
+
+    }
+
+    public void simpleUndoReversibleMove() throws InterruptedException {
         // castleRights (4 bits)
         halfMoveCount = 0; // (32 bits)
         int flag = 0; // (2 bits)
@@ -375,13 +429,13 @@ public class ChessNew {
         int endingColor = 0; // 1 bit
         int endingPiece = 0; // 3 bits
         int endingSquareOffset = 0; // 6 bits
-        int startingColor = 0; // 1 bit
+        boolean isInCheck = false; // 1 bit
         int startingPiece = 0; // 3 bits
         int startingSquareOffset = 0; // 6 bits
         long endingSquare = 0l;
         long startingSquare = 0l;
-
         long input = reversibleMoves.remove(reversibleMoves.size() - 1);
+        String moveString = getMoveStringReversible(input);
         long push = 0;
         for (int color : COLORS_REVERSED) {
             for (int side : SIDES_REVERSED) {
@@ -440,7 +494,7 @@ public class ChessNew {
 
         push = pushRight(1l, 1 - 1);
         while (push != 0) {
-            startingColor |= push & input;
+            isInCheck = (push & input) == 1;
             push = pushLeft(push, 1);
         }
         input = pushLeft(input, 1);
@@ -459,38 +513,41 @@ public class ChessNew {
         }
         startingSquare = pushRight(1l, startingSquareOffset);
         input = pushLeft(input, 6);
-
-        remove(startingSquare);
-        remove(endingSquare);
-        add(startingSquare, startingColor, startingPiece);
-        add(endingSquare, endingColor, endingPiece);
+        int startingColor = turn ^ 1;
+        this.inCheck = isInCheck;
         switch (flag) {
             case FLAG_CASTLE:
                 long back = getBackRank(startingColor);
                 if ((ROOK_STARTING_FILES[QUEENSIDE] & back) == endingSquare) {
-                    remove(back & C_FILE);
-                    remove(back & D_FILE);
+                    swap(back & C_FILE, startingSquare);
+                    swap(back & D_FILE, endingSquare);
                 } else {
-                    remove(back & F_FILE);
-                    remove(back & G_FILE);
+                    swap(back & G_FILE, startingSquare);
+                    swap(back & F_FILE, endingSquare);
                 }
                 break;
             case FLAG_PROMOTION:
+                replace(startingSquare, startingColor, startingPiece);
+                replace(endingSquare, endingColor, endingPiece);
                 break;
             case FLAG_EN_PASSANT:
-                long captureSquare = RANKS[getRankIndex(startingSquare)] & FILES[getFileIndex(endingSquare)];
-                remove(captureSquare);
+                long addPawnSquare = RANKS[getRankIndex(startingSquare)] & FILES[getFileIndex(endingSquare)];
+                replace(addPawnSquare, endingColor, endingPiece);
+                remove(endingSquare);
+                add(startingSquare, startingColor, startingPiece);
                 break;
             case FLAG_STANDARD:
+                replace(startingSquare, startingColor, startingPiece);
+                replace(endingSquare, endingColor, endingPiece);
                 break;
         }
         turn ^= 1;
         shortenedFenList.remove(shortenedFenList.size() - 1);
+        this.gameOver = false;
         return;
     }
 
-    public void extendedUndoReversibleMove() {
-        this.gameOver = false;
+    public void extendedUndoReversibleMove() throws Exception {
         simpleUndoReversibleMove();
         updateLegalMoves();
     }
@@ -509,7 +566,6 @@ public class ChessNew {
                 castleRights[endColor][side] = false;
             }
         }
-        enPassantSquare = 0l;
         halfMoveCount = -1;
         return;
     }
@@ -538,7 +594,6 @@ public class ChessNew {
         }
         move(mainStartSquare, mainEndSquare);
         move(helperStartSquare, helperEndSquare);
-        enPassantSquare = 0l;
         for (int side : SIDES) {
             castleRights[startColor][side] = false;
         }
@@ -551,7 +606,6 @@ public class ChessNew {
         long captureSquare = ChessNew.pushDown(end, end - start > 0 ? 1 : -1);
         remove(captureSquare);
         move(start, end);
-        enPassantSquare = 0l;
         halfMoveCount = -1;
     }
 
@@ -563,7 +617,6 @@ public class ChessNew {
         int startColor = getColor(start);
         int endColor = getColor(end);
         move(start, end);
-        enPassantSquare = 0l;
         if (startPiece == PAWN || endPiece != EMPTY) { // pawn move or capture, reset halfMoveCount
             halfMoveCount = -1;
         }
@@ -592,7 +645,7 @@ public class ChessNew {
         }
     }
 
-    public void updateLegalMoves() {
+    public void updateLegalMoves() throws Exception {
         if (gameOver) {
             return;
         }
@@ -692,22 +745,11 @@ public class ChessNew {
         return false;
     }
 
-    public long Perft(int depth, boolean print) {
-        if (print) {
-            Map<Short, Long> theMap = new HashMap<>();
-            long output = Perft(depth, theMap, true);
-            for (short key : theMap.keySet()) {
-                System.out.println("" + getStringMove(key) + ": " + theMap.get(key));
-            }
-            System.out.println("Nodes searched: " + output);
-            System.out.println();
-            return output;
-        } else {
-            return Perft(depth);
-        }
+    public long Perft(int depth) throws Exception {
+        return Perft(depth,true);
     }
 
-    public long Perft(int depth, Map<Short, Long> map, boolean topCall) {
+    public long Perft(int depth, boolean topCall) throws Exception {
         List<Short> moves = new ArrayList<>(legalMoves);
         int n_moves, i;
         int nodes = 0;
@@ -716,30 +758,18 @@ public class ChessNew {
         n_moves = moves.size();
         for (i = 0; i < n_moves; i++) {
             makeMove(moves.get(i));
-            long l = Perft(depth - 1, map, false);
-            nodes += l;
+            long l = Perft(depth - 1, false);
             if (topCall) {
-                map.put(moves.get(i), l);
+                System.out.println("" + getMoveString(moves.get(i)) + ": " + l);
             }
-            extendedUndoReversibleMove();
-        }
-
-        return nodes;
-    }
-
-    public long Perft(int depth) {
-        List<Short> moves = new ArrayList<>(legalMoves);
-        int n_moves, i;
-        int nodes = 0;
-        if (depth == 0)
-            return 1;
-        n_moves = moves.size();
-        for (i = 0; i < n_moves; i++) {
-            makeMove(moves.get(i));
-            long l = Perft(depth - 1);
             nodes += l;
             extendedUndoReversibleMove();
         }
+        if (topCall) {
+            System.out.println("Nodes searched: " + nodes);
+            System.out.println();
+        }
+
         return nodes;
     }
 
@@ -790,7 +820,7 @@ public class ChessNew {
                     continue;
                 }
                 startingSquare = s(endingSquare, offset);
-                if (endingSquare == getBackRank(turn ^ 1)) {
+                if ((endingSquare & getBackRank(turn ^ 1)) != 0) {
                     for (int piece : PROMOTION_PIECES) {
                         move = encodeMove(startingSquare, endingSquare, piece, FLAG_PROMOTION);
                         if (!pseudoLegalMoves[turn].contains(move)) {
@@ -818,7 +848,7 @@ public class ChessNew {
                 }
                 startingSquare = s(endingSquare, offset);
                 startingSquare = w(startingSquare, 1);
-                if (endingSquare == getBackRank(turn ^ 1)) {
+                if ((endingSquare & getBackRank(turn ^ 1)) != 0) {
                     for (int piece : PROMOTION_PIECES) {
                         move = encodeMove(startingSquare, endingSquare, piece, FLAG_PROMOTION);
                         if (!pseudoLegalMoves[turn].contains(move)) {
@@ -851,7 +881,7 @@ public class ChessNew {
                 }
                 startingSquare = s(endingSquare, offset);
                 startingSquare = e(startingSquare, 1);
-                if (endingSquare == getBackRank(turn ^ 1)) {
+                if ((endingSquare & getBackRank(turn ^ 1)) != 0) {
                     for (int piece : PROMOTION_PIECES) {
                         move = encodeMove(startingSquare, endingSquare, piece, FLAG_PROMOTION);
                         if (!pseudoLegalMoves[turn].contains(move)) {
@@ -1090,6 +1120,10 @@ public class ChessNew {
         swap(create(start), create(end));
     }
 
+    public void replace(long square, int color, int piece) {
+        add(square, color, piece);
+    }
+
     public void add(long square, int color, int piece) {
         int priorPiece = getPiece(square);
         int priorColor = getColor(square);
@@ -1261,7 +1295,7 @@ public class ChessNew {
         return build.toString();
     }
 
-    public void setFromFen(String fen) {
+    public void setFromFen(String fen) throws Exception {
         int fileIndex = 0;
         int stringIndex = 0;
         char pointer = fen.charAt(stringIndex);
@@ -1290,12 +1324,14 @@ public class ChessNew {
         turn = (pointer == 'w') ? WHITE : BLACK;
         stringIndex += 2;
         pointer = fen.charAt(stringIndex);
-        if (pointer == '-') {
-            for (int color : COLORS) {
-                for (int side : SIDES) {
-                    castleRights[color][side] = false;
-                }
+        for (int color : COLORS) {
+            for (int side : SIDES) {
+                castleRights[color][side] = false;
             }
+        }
+        if (pointer == '-') {
+            stringIndex++;
+            pointer = fen.charAt(stringIndex);
         } else {
             while (pointer != ' ') {
                 int color = getColorFromChar(pointer);
