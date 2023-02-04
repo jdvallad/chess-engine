@@ -124,6 +124,13 @@ public class Chess {
         updateLegalMoves();
     }
 
+    public void print(boolean ascii, boolean flipped){
+        if(ascii){
+            printSimple(flipped);
+        } else{
+            print(flipped);
+        }
+    }
     public void print(boolean flipped) {
         boolean flag = false;
         System.out.print("                                ");
@@ -227,6 +234,54 @@ public class Chess {
             }
         }
         return false;
+    }
+    public void printSimple(boolean flipped) {
+        boolean flag = false;
+        System.out.print("                                ");
+        if (!flipped) {
+            System.out.println("  a   b   c   d   e   f   g   h");
+        } else {
+            System.out.println("  h   g   f   e   d   c   b   a");
+
+        }
+        System.out.print("                                ");
+        System.out.println("|---|---|---|---|---|---|---|---|");
+        System.out.print("                              ");
+        if (!flipped) {
+            System.out.print("8 ");
+        } else {
+            System.out.print("1 ");
+
+        }
+        System.out.print("│");
+        for (long rank : (flipped ? RANKS : RANKS_REVERSED)) {
+            if (flag) {
+                System.out.print("\r\n                                ");
+                System.out.println("|---|---|---|---|---|---|---|---|");
+                System.out.print("                              ");
+                System.out.print("" + (1 + getRankIndex(rank & A_FILE)) + " ");
+                System.out.print("|");
+            }
+            flag = true;
+            foundPiece: for (long file : (flipped ? FILES_REVERSED : FILES)) {
+                long square = rank & file;
+                for (int color : COLORS) {
+                    for (int piece : PIECES) {
+                        if ((pieceBoards[color][piece] & square) == square) {
+                            System.out.print(" " + PIECE_CHARS_ASCII[color][piece] + " |");
+                            if (file == (flipped ? A_FILE : H_FILE)) {
+                                System.out.print(" " + (1 + getRankIndex(rank & file)));
+                            }
+                            continue foundPiece;
+                        }
+                    }
+                }
+            }
+        }
+        System.out.print("\r\n                                ");
+        System.out.println("|---|---|---|---|---|---|---|---|");
+        System.out.print("                                ");
+        System.out.println("  a   b   c   d   e   f   g   h\r\n");
     }
 
     public void printSimple() {
