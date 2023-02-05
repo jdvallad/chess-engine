@@ -46,8 +46,8 @@ public class ChessInTerminal {
                     }
                     break;
                 case "random":
-                    int random = (int) (Math.random() * (double) game.legalMoves.size());
-                    game.move(game.legalMoves.get(random));
+                    int random = (int) (Math.random() * (double) game.legalMovesSize);
+                    game.move(game.legalMoves[random]);
                     System.out.println("\033c");
                     game.print(ascii, flip);
                     game.printLegalMoves();
