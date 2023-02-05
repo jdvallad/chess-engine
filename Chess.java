@@ -74,8 +74,9 @@ public class Chess {
                     71776119061217280l, 0l }
     };
     public static final long[] ROOK_STARTING_FILES = new long[] { A_FILE, H_FILE };
-    public static final int MAX_GAME_LENGTH = 8191; // 13 bits
-    public static final int MAX_NUM_MOVES = 511; // 9 bits
+    public static final int MAX_GAME_LENGTH = 8191;
+    public static final int MAX_NUM_MOVES = 511;
+    public static final int HASH_SIZE = 71;
     // Object instance variables
     int turn;
     long[][] pieceBoards;
@@ -97,7 +98,7 @@ public class Chess {
     char[] hash;
 
     public Chess() throws Exception {
-        hash = new char[71];
+        hash = new char[HASH_SIZE];
         turn = WHITE;
         inCheck = false;
         gameOver = false;
@@ -1060,7 +1061,8 @@ public class Chess {
         updatePseudoLegalMoves();
         for (int i = 0; i < pseudoLegalMovesSize[this.turn]; i++) { // moves your opponent could make if it was their
                                                                     // turn
-            if (getEndingSquare(pseudoLegalMoves[this.turn][i]) == enemyKing) { // any of your opponents move capture your king
+            if (getEndingSquare(pseudoLegalMoves[this.turn][i]) == enemyKing) { // any of your opponents move capture
+                                                                                // your king
                 return true;
             }
         }

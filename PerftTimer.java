@@ -4,7 +4,7 @@ public class PerftTimer {
 
     // current time to beat is 17.026382704 seconds for startpos and depth 4.
     public static void main(String[] arges) throws Exception {
-        String testFen = startpos;
+        String testFen = densepos;
         int testDepth = 4;
 
         System.out.println("Timing with:");
