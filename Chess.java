@@ -540,7 +540,6 @@ public class Chess {
                 input = pushLeft(input, 1);
             }
         }
-
         push = pushRight(1l, 32 - 1);
         while (push != 0) {
             halfMoveCount |= push & input;
@@ -562,6 +561,8 @@ public class Chess {
         }
         if (enPassantSquareOffset != 0) { // EnPassantOffset gets encoded as 0 if their is not enpassant square
             enPassantSquare = pushRight(1l, enPassantSquareOffset);
+        } else {
+            enPassantSquare = 0;
         }
         input = pushLeft(input, 6);
 
@@ -647,7 +648,6 @@ public class Chess {
         }
         legalMovesClear();
         updatePseudoLegalMoves(turn);
-
         for (int i = 0; i < pseudoLegalMovesSize[turn]; i++) {
             short move = pseudoLegalMoves[turn][i];
             if (getFlag(move) == FLAG_CASTLE) {
