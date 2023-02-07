@@ -9,7 +9,7 @@ public class PerftTimer {
     // .832162941 seconds!!! Perft call adjusted.
     public static void main(String[] args) throws Exception {
         String testFen = startpos;
-        int testDepth = 6;
+        int testDepth = 4;
 
         System.out.println("Timing with:");
         System.out.println("Fen: " + testFen);
