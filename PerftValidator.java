@@ -21,7 +21,7 @@ public class PerftValidator {
         Chess game = new Chess();
         for (int i = 0; i < fens.length; i++) {
             game.setFromFen(fens[i]);
-            game.perft(4);
+            game.perft(4,true);
             System.out.println("Nodes expected: " + perft4Results[i]);
             System.out.println("Results above from fen: " + fens[i]);
             System.out.println();
