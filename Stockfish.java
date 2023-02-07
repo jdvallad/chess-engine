@@ -74,7 +74,7 @@ public class Stockfish {
         }
         Map<String, Long> myMap = game.perftMap(depth);
         Map<String, Long> trueMap = Stockfish.perft(fen, depth, moves);
-        if (myMap.get("total") == trueMap.get("total")) {
+        if (myMap.get("total").equals(trueMap.get("total"))) {
             System.out.println("Fen: " + fen);
             if (moves.length > 0) {
                 System.out.print("Moves :");
