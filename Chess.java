@@ -560,7 +560,9 @@ public class Chess {
             enPassantSquareOffset |= push & input;
             push = pushLeft(push, 1);
         }
-        enPassantSquare = pushRight(1l, enPassantSquareOffset);
+        if (enPassantSquareOffset != 0) { // EnPassantOffset gets encoded as 0 if their is not enpassant square
+            enPassantSquare = pushRight(1l, enPassantSquareOffset);
+        }
         input = pushLeft(input, 6);
 
         push = pushRight(1l, 1 - 1);
@@ -612,7 +614,7 @@ public class Chess {
                 }
                 break;
             case FLAG_PROMOTION:
-                replace(startingSquare, startingColor, startingPiece);
+                add(startingSquare, startingColor, startingPiece);
                 replace(endingSquare, endingColor, endingPiece);
                 break;
             case FLAG_EN_PASSANT:
@@ -831,7 +833,8 @@ public class Chess {
         output = pushRight(output, 6);
         push = pushRight(1l, 6 - 1);
         while (push != 0) {
-            output |= push & enPassantSquareOffset;
+            output |= push & enPassantSquareOffset; // if enPassantSquare is 0, then enPassantSquareOffset gets encoded
+                                                    // as 64, but only 5 bits, so get set as 0 in encodedMove
             push = pushLeft(push, 1);
         }
 
@@ -1441,20 +1444,22 @@ public class Chess {
     }
 
     public void add(long square, int color, int piece) {
-        int priorPiece = getPiece(square);
-        int priorColor = getColor(square);
-        pieceBoards[priorColor][priorPiece] &= ~square; // remove prior piece from square
-        if (priorPiece != EMPTY) {
-            combinedBoards[priorColor] &= ~square; // remove prior piece from combinedBoard if its not EMPTY
-        }
-        pieceBoards[color][piece] |= square; // add new piece to square
+        remove(square);
         if (piece != EMPTY) {
-            combinedBoards[color] |= square; // add new piece to combinedBoard if its not EMPTY
+            combinedBoards[color] |= square; // add piece to combinedBoard
+            pieceBoards[WHITE][EMPTY] &= ~square; // remove whitespace
+            pieceBoards[color][piece] |= square; // add piece to board
         }
     }
 
     public void remove(long square) {
-        add(square, WHITE, EMPTY);
+        int priorPiece = getPiece(square);
+        int priorColor = getColor(square);
+        if (priorPiece != EMPTY) {
+            combinedBoards[priorColor] &= ~square; // remove prior piece from combinedBoard if its not EMPTY
+            pieceBoards[WHITE][EMPTY] |= square; // add empty square at this location
+            pieceBoards[priorColor][priorPiece] &= ~square; // remove prior piece from board
+        }
     }
 
     public int getPiece(long square) {
