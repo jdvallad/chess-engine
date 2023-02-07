@@ -1,4 +1,3 @@
-import java.util.HashMap;
 import java.util.Map;
 import java.util.TreeMap;
 
@@ -656,7 +655,6 @@ public class Chess {
                 }
                 boolean kingSideCastle = ((getEndingSquare(move) & ROOK_STARTING_FILES[KINGSIDE]) != 0);
                 long king = pieceBoards[turn][KING];
-                long shiftedKing = 0;
                 if (kingSideCastle) {
                     if (squareAttacked(e(king))) {
                         continue;
