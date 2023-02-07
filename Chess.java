@@ -1060,9 +1060,8 @@ public class Chess {
     }
 
     public long perft(int depth) throws Exception {
-        if (depth == 1) {
-            updateLegalMoves();
-            return legalMovesSize;
+        if (depth == 0) {
+            return 1;
         }
         long nodes = 0;
         short[] moves = pseudoLegalMovesCopy(turn);
