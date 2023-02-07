@@ -76,7 +76,6 @@ public class Stockfish {
         Map<String, Long> trueMap = Stockfish.perft(fen, depth, moves);
         if (myMap.get("total") == trueMap.get("total")) {
             System.out.println("Fen: " + fen);
-            System.out.println("Depth: " + depth);
             if (moves.length > 0) {
                 System.out.print("Moves :");
                 for (String move : moves) {
@@ -91,7 +90,7 @@ public class Stockfish {
             for (String move : moves) {
                 moveList.add(move);
             }
-            while (depth > 0) {
+            while (true) {
                 HashSet<String> sharedKeys = new HashSet<>(myMap.keySet());
                 sharedKeys.retainAll(trueMap.keySet());
                 String moveThatShouldBeLegal = "";
@@ -110,14 +109,13 @@ public class Stockfish {
                     }
                 }
                 for (String key : sharedKeys) {
-                    if (!trueMap.get(key).equals(myMap.get(key))) {
+                    if (!trueMap.get(key).equals(myMap.get(key)) && !key.equals("total")) {
                         moveWithoutMatch = key;
                         break;
                     }
                 }
                 if (moveThatShouldBeIllegal.length() > 0) {
                     System.out.println("Fen: " + fen);
-                    System.out.println("Depth: " + depth);
                     if (moveList.size() > 0) {
                         System.out.print("Moves :");
                         for (String move : moveList) {
@@ -132,7 +130,6 @@ public class Stockfish {
                 }
                 if (moveThatShouldBeLegal.length() > 0) {
                     System.out.println("Fen: " + fen);
-                    System.out.println("Depth: " + depth);
                     if (moveList.size() > 0) {
                         System.out.print("Moves :");
                         for (String move : moveList) {

@@ -646,16 +646,11 @@ public class Chess {
         }
         legalMovesClear();
         updatePseudoLegalMoves(turn);
+
         for (int i = 0; i < pseudoLegalMovesSize[turn]; i++) {
             short move = pseudoLegalMoves[turn][i];
-            if (getFlag(move) != FLAG_CASTLE) {
-                this.pseudoMove(move);
-                updatePseudoLegalMoves(turn);
-                if (!enemyInCheck()) {
-                    legalMovesAdd(move);
-                }
-                pseudoUndo();
-            } else {
+            if (getFlag(move) == FLAG_CASTLE) {
+                updatePseudoLegalMoves(turn ^ 1);
                 if (inCheck()) {
                     continue;
                 }
@@ -688,6 +683,13 @@ public class Chess {
                     }
                     pseudoUndo();
                 }
+            } else {
+                this.pseudoMove(move);
+                updatePseudoLegalMoves(turn);
+                if (!enemyInCheck()) {
+                    legalMovesAdd(move);
+                }
+                pseudoUndo();
             }
         }
         if (legalMovesSize == 0) {
@@ -1060,7 +1062,6 @@ public class Chess {
         if (depth == 1) {
             for (int i = 0; i < legalMovesSize; i++) {
                 map.put(getMoveString(legalMoves[i]), 1l);
-                System.out.println("" + getMoveString(legalMoves[i]) + ": 1");
             }
             return map;
         }
