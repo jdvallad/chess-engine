@@ -1,3 +1,7 @@
+import java.util.HashMap;
+import java.util.Map;
+import java.util.TreeMap;
+
 public class Chess {
     public static final int QUEEN = 0;
     public static final int KNIGHT = 1;
@@ -304,14 +308,20 @@ public class Chess {
         long startingSquare = getStartingSquare(move);
         long endingSquare = getEndingSquare(move);
         int flag = getFlag(move);
-        int piece = getPromotion(move);
+        if (flag == FLAG_CASTLE) {
+            if (FILES[getFileIndex(endingSquare)] == ROOK_STARTING_FILES[KINGSIDE]) {
+                endingSquare = e(e(startingSquare));
+            } else {
+                endingSquare = w(w(startingSquare));
+            }
+        }
         char startingFile = (char) ('a' + getFileIndex(startingSquare));
         char startingRank = (char) ('1' + getRankIndex(startingSquare));
         char endingFile = (char) ('a' + getFileIndex(endingSquare));
         char endingRank = (char) ('1' + getRankIndex(endingSquare));
         String output = "" + startingFile + startingRank + endingFile + endingRank;
         if (flag == FLAG_PROMOTION) {
-            output += PIECE_CHARS_ASCII[BLACK][piece];
+            output += PIECE_CHARS_ASCII[BLACK][getPromotion(move)];
         }
         return output;
     }
@@ -452,7 +462,7 @@ public class Chess {
                 return;
             }
         }
-        throw new Exception("Not a legal move.");
+        throw new Exception("" + move + " is not a legal move.");
     }
 
     public void move(short move) throws Exception {
@@ -1043,6 +1053,27 @@ public class Chess {
         }
         System.out.println("Nodes searched: " + nodes);
         return nodes;
+    }
+
+    public Map<String, Long> perftMap(int depth) throws Exception {
+        Map<String, Long> map = new TreeMap<>();
+        if (depth == 1) {
+            for (int i = 0; i < legalMovesSize; i++) {
+                map.put(getMoveString(legalMoves[i]), 1l);
+                System.out.println("" + getMoveString(legalMoves[i]) + ": 1");
+            }
+            return map;
+        }
+        long nodes = 0;
+        for (int i = 0; i < legalMovesSize; i++) {
+            move(legalMoves[i]);
+            long divide = perft(depth - 1);
+            nodes += divide;
+            undo();
+            map.put(getMoveString(legalMoves[i]), divide);
+        }
+        map.put("total", nodes);
+        return map;
     }
 
     public short[] legalMovesCopy() {
