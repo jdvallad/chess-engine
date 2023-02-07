@@ -96,6 +96,11 @@ public class Chess {
     boolean gameOver;
     char[] hash;
 
+    public Chess(String fen) throws Exception {
+        this();
+        setFromFen(fen);
+    }
+
     public Chess() throws Exception {
         hash = new char[HASH_SIZE];
         turn = WHITE;
@@ -452,26 +457,26 @@ public class Chess {
 
     public void move(short move) throws Exception {
         if (!legalMovesContains(move)) {
-            throw new Exception(getMoveString(move) + " is not a valid move!");
+            throw new Exception(getMoveString(move) + " is not a legal move!");
         }
         pseudoMove(move);
+        updateHash(move);
+        hashListAdd(new String(hash));
         updateLegalMoves();
     }
 
     public void undo() throws Exception {
         if (reversibleMovesSize == 0) {
-            return;
+            throw new Exception("No move to undo.");
         }
         pseudoUndo();
+        hash = hashListPop().toCharArray();
         updateLegalMoves();
     }
 
     public void pseudoMove(short move) throws Exception {
         if (!pseudoLegalMovesContains(turn, move)) {
-            printPseudoLegalMoves(turn);
-            System.out.println(""+ getMoveString(move));
-            print();
-            throw new Exception();
+            throw new Exception(getMoveString(move) + " is not a pseudo-legal move!");
         }
         reversibleMovesAdd(encodeReversibleMove(move));
         enPassantSquare = 0;
@@ -497,13 +502,11 @@ public class Chess {
         }
         halfMoveCount += 1;
         turn ^= 1;
-        updateHash(move);
-        hashListAdd(new String(hash));
     }
 
     public void pseudoUndo() throws Exception {
         if (reversibleMovesSize == 0) {
-            return;
+            throw new Exception("No move to undo.");
         }
         // castleRights (4 bits)
         halfMoveCount = 0; // (32 bits)
@@ -615,7 +618,6 @@ public class Chess {
                 break;
         }
         turn ^= 1;
-        hash = hashListPop().toCharArray();
         this.gameOver = false;
         return;
     }
@@ -998,11 +1000,6 @@ public class Chess {
         pseudoLegalMovesSize[theTurn] = 0;
     }
 
-    public void pseudoLegalMovesClear() {
-        pseudoLegalMovesSize[WHITE] = 0;
-        pseudoLegalMovesSize[BLACK] = 0;
-    }
-
     public void legalMovesClear() {
         legalMovesSize = 0;
     }
@@ -1025,18 +1022,24 @@ public class Chess {
     }
 
     public long perft(int depth, boolean verbose) throws Exception {
-        if (depth == 0) {
-            return 1;
+        if (depth == 1) {
+            if (verbose) {
+                for (int i = 0; i < legalMovesSize; i++) {
+                    System.out.println("" + getMoveString(legalMoves[i]) + ": 1");
+                }
+            }
+            System.out.println("Nodes searched: " + legalMovesSize);
+            return legalMovesSize;
         }
         long nodes = 0;
         for (int i = 0; i < legalMovesSize; i++) {
             move(legalMoves[i]);
             long divide = perft(depth - 1);
             nodes += divide;
+            undo();
             if (verbose) {
                 System.out.println("" + getMoveString(legalMoves[i]) + ": " + divide);
             }
-            undo();
         }
         System.out.println("Nodes searched: " + nodes);
         return nodes;
@@ -1051,8 +1054,8 @@ public class Chess {
     }
 
     public long perft(int depth) throws Exception {
-        if (depth == 0) {
-            return 1;
+        if (depth == 1) {
+            return legalMovesSize;
         }
         long nodes = 0;
         for (int i = 0; i < legalMovesSize; i++) {

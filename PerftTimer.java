@@ -5,9 +5,11 @@ public class PerftTimer {
     // current time to beat is 17.026382704 seconds for startpos and depth 4.
     // 16.760811930 seconds with just minor perft adjustments.
     // 16.161519673 seconds with adjusting move generation slightly.
-    public static void main(String[] arges) throws Exception {
+    // 15.789272655 seconds by removing hash call from pseudoLegalMove and undo.
+    // .832162941 seconds!!! Perft call adjusted.
+    public static void main(String[] args) throws Exception {
         String testFen = startpos;
-        int testDepth = 4;
+        int testDepth = 6;
 
         System.out.println("Timing with:");
         System.out.println("Fen: " + testFen);
