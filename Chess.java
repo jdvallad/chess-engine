@@ -728,8 +728,8 @@ public class Chess {
 
     public boolean enemySquareAttacked(long square) { // Returns true if one of your pieces is attacking a square
         // In the case of pawns, only considers diagonal attacks.
-        if ((e(n(pieceBoards[turn][PAWN], (turn == BLACK) ? -1 : 1))
-                | w(n(pieceBoards[turn][PAWN], (turn == BLACK) ? -1 : 1)) & pieceBoards[WHITE][EMPTY] & square) != 0) {
+        if (((e(n(pieceBoards[turn][PAWN], (turn == BLACK) ? -1 : 1))
+                | w(n(pieceBoards[turn][PAWN], (turn == BLACK) ? -1 : 1))) & pieceBoards[WHITE][EMPTY] & square) != 0) {
             return true;
         }
         for (int i = 0; i < pseudoLegalMovesSize[turn]; i++) {
