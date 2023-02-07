@@ -72,7 +72,7 @@ public class Stockfish {
         for (String move : moves) {
             game.move(move);
         }
-        Map<String, Long> myMap = game.perftMap(depth);
+        Map<String, Long> myMap = game.pseudoPerftMap(depth);
         Map<String, Long> trueMap = Stockfish.perft(fen, depth, moves);
         if (myMap.get("total").equals(trueMap.get("total"))) {
             System.out.println("Fen: " + fen);
@@ -149,7 +149,7 @@ public class Stockfish {
                 if (depth == 0) {
                     throw new Exception("Something went wrong.");
                 }
-                myMap = game.perftMap(depth);
+                myMap = game.pseudoPerftMap(depth);
                 trueMap = Stockfish.perft(game.getFen(), depth, moveList.toArray(String[]::new));
             }
         }

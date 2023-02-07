@@ -466,11 +466,15 @@ public class Chess {
     }
 
     public void move(short move) throws Exception {
-        if (!legalMovesContains(move)) {
-            throw new Exception(getMoveString(move) + " is not a legal move!");
-        }
         pseudoMove(move);
         updateLegalMoves();
+    }
+
+    private void undoNoUpdate() throws Exception {
+        if (reversibleMovesSize == 0) {
+            throw new Exception("No move to undo.");
+        }
+        pseudoUndo();
     }
 
     public void undo() throws Exception {
@@ -478,10 +482,9 @@ public class Chess {
             throw new Exception("No move to undo.");
         }
         pseudoUndo();
-        updatePseudoLegalMoves(turn);
         updateLegalMoves();
     }
-
+   
     public void pseudoMove(String move) throws Exception {
         for (int i = 0; i < pseudoLegalMovesSize[turn]; i++) {
             if (getMoveString(pseudoLegalMoves[turn][i]).equals(move)) {
@@ -656,6 +659,7 @@ public class Chess {
             gameOver = true;
             return;
         }
+        updatePseudoLegalMoves(turn);
         legalMovesClear();
         for (int i = 0; i < pseudoLegalMovesSize[turn]; i++) {
             short move = pseudoLegalMoves[turn][i];
@@ -1039,7 +1043,7 @@ public class Chess {
         return count;
     }
 
-    public long perft(int depth, boolean verbose) throws Exception {
+    public long pseudoPerft(int depth, boolean verbose) throws Exception {
         long nodes = 0;
         short[] moves = pseudoLegalMovesCopy(turn);
         for (int i = 0; i < moves.length; i++) {
@@ -1047,7 +1051,7 @@ public class Chess {
             boolean enemyInCheck = enemyInCheck();
             long divide = 0;
             if (!enemyInCheck) {
-                divide = perft(depth - 1);
+                divide = pseudoPerft(depth - 1);
                 nodes += divide;
             }
             pseudoUndo();
@@ -1059,7 +1063,7 @@ public class Chess {
         return nodes;
     }
 
-    public long perft(int depth) throws Exception {
+    public long pseudoPerft(int depth) throws Exception {
         if (depth == 0) {
             return 1;
         }
@@ -1068,14 +1072,14 @@ public class Chess {
         for (int i = 0; i < moves.length; i++) {
             pseudoMove(moves[i]);
             if (!enemyInCheck()) {
-                nodes += perft(depth - 1);
+                nodes += pseudoPerft(depth - 1);
             }
             pseudoUndo();
         }
         return nodes;
     }
 
-    public Map<String, Long> perftMap(int depth) throws Exception {
+    public Map<String, Long> pseudoPerftMap(int depth) throws Exception {
         Map<String, Long> map = new TreeMap<>();
         long nodes = 0;
         short[] moves = pseudoLegalMovesCopy(turn);
@@ -1084,7 +1088,7 @@ public class Chess {
             boolean enemyInCheck = enemyInCheck();
             long divide = 0;
             if (!enemyInCheck) {
-                divide = perft(depth - 1);
+                divide = pseudoPerft(depth - 1);
                 nodes += divide;
             }
             pseudoUndo();
@@ -1096,6 +1100,63 @@ public class Chess {
         return map;
     }
 
+    
+    public long perft(int depth, boolean verbose) throws Exception {
+        long nodes = 0;
+        short[] moves = legalMovesCopy();
+        for (int i = 0; i < moves.length; i++) {
+            move(moves[i]);
+            boolean enemyInCheck = enemyInCheck();
+            long divide = 0;
+            if (!enemyInCheck) {
+                divide = perft(depth - 1);
+                nodes += divide;
+            }
+            undoNoUpdate();
+            if ((!enemyInCheck) && verbose) {
+                System.out.println("" + getMoveString(moves[i]) + ": " + divide);
+            }
+        }
+        System.out.println("Nodes searched: " + nodes);
+        return nodes;
+    }
+
+    public long perft(int depth) throws Exception {
+        if (depth == 1) {
+            return legalMovesSize;
+        }
+        long nodes = 0;
+        short[] moves = legalMovesCopy();
+        for (int i = 0; i < moves.length; i++) {
+            move(moves[i]);
+            if (!enemyInCheck()) {
+                nodes += perft(depth - 1);
+            }
+            undoNoUpdate();
+        }
+        return nodes;
+    }
+
+    public Map<String, Long> perftMap(int depth) throws Exception {
+        Map<String, Long> map = new TreeMap<>();
+        long nodes = 0;
+        short[] moves = legalMovesCopy();
+        for (int i = 0; i < moves.length; i++) {
+            move(moves[i]);
+            boolean enemyInCheck = enemyInCheck();
+            long divide = 0;
+            if (!enemyInCheck) {
+                divide = perft(depth - 1);
+                nodes += divide;
+            }
+            undoNoUpdate();
+            if (!enemyInCheck) {
+                map.put(getMoveString(moves[i]), divide);
+            }
+        }
+        map.put("total", nodes);
+        return map;
+    }
     public short[] legalMovesCopy() {
         short[] output = new short[legalMovesSize];
         for (int i = 0; i < legalMovesSize; i++) {

@@ -7,9 +7,12 @@ public class PerftTimer {
     // 16.161519673 seconds with adjusting move generation slightly.
     // 15.789272655 seconds by removing hash call from pseudoLegalMove and undo.
     // .832162941 seconds!!! Perft call adjusted.
-    // .126732529 seconds by switching perft to pseudo legal move call
+    // .518366168 seconds with pseudoPerft startpos, depth 4
+    // .563530948 seconds with perft startpos, depth 4
+    // 10.98 seconds with perft densepos, depth 4
+    // 10.52 seconds with pseduoPerft, depth 4
     public static void main(String[] args) throws Exception {
-        String testFen = startpos;
+        String testFen = densepos;
         int testDepth = 4;
         System.out.println("Timing with:");
         System.out.println("Fen: " + testFen);
@@ -18,7 +21,7 @@ public class PerftTimer {
         game.setFromFen(testFen);
         // Lets time the method!
         long startTime = System.nanoTime();
-        game.perft(testDepth, false);
+        game.pseudoPerft(testDepth, false);
         long endTime = System.nanoTime();
         // Lets print the duration to console!
 
