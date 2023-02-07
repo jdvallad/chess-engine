@@ -656,6 +656,7 @@ public class Chess {
                 }
                 boolean kingSideCastle = ((getEndingSquare(move) & ROOK_STARTING_FILES[KINGSIDE]) != 0);
                 long king = pieceBoards[turn][KING];
+                long shiftedKing = 0;
                 if (kingSideCastle) {
                     if (squareAttacked(e(king))) {
                         continue;
@@ -711,12 +712,10 @@ public class Chess {
     }
 
     public boolean squareAttacked(long square) {
-        for (int i = 0; i < pseudoLegalMovesSize[turn ^ 1]; i++) {
-            if (getEndingSquare(pseudoLegalMoves[turn ^ 1][i]) == square) {
-                return true;
-            }
-        }
-        return false;
+        turn ^= 1;
+        boolean result = enemySquareAttacked(square);
+        turn ^= 1;
+        return result;
     }
 
     public boolean inCheck() {
@@ -727,9 +726,19 @@ public class Chess {
         return enemySquareAttacked(pieceBoards[turn ^ 1][KING]);
     }
 
-    public boolean enemySquareAttacked(long square) {
+    public boolean enemySquareAttacked(long square) { // Returns true if one of your pieces is attacking a square
+        // In the case of pawns, only considers diagonal attacks.
+        if ((e(n(pieceBoards[turn][PAWN], (turn == BLACK) ? -1 : 1))
+                | w(n(pieceBoards[turn][PAWN], (turn == BLACK) ? -1 : 1)) & pieceBoards[WHITE][EMPTY] & square) != 0) {
+            return true;
+        }
         for (int i = 0; i < pseudoLegalMovesSize[turn]; i++) {
             if (getEndingSquare(pseudoLegalMoves[turn][i]) == square) {
+                long startingSquare = getStartingSquare(pseudoLegalMoves[turn][i]);
+                int attackingPiece = getPiece(startingSquare);
+                if (attackingPiece == PAWN && getFileIndex(square) == getFileIndex(startingSquare)) {
+                    continue;
+                }
                 return true;
             }
         }
