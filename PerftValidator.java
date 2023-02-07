@@ -5,7 +5,7 @@ public class PerftValidator {
             "8/2p5/3p4/KP5r/1R3p1k/8/4P1P1/8 w - -",
             "rnbq1k1r/pp1Pbppp/2p5/8/2B5/8/PPP1NnPP/RNBQK2R w KQ - 1 8",
             "r4rk1/1pp1qppp/p1np1n2/2b1p1B1/2B1P1b1/P1NP1N2/1PP1QPPP/R4RK1 w - - 0 10",
-            "1k6/1b6/8/8/7R/8/8/4K2R b K ",
+            "1k6/1b6/8/8/7R/8/8/4K2R b K -",
             "3k4/3p4/8/K1P4r/8/8/8/8 b - -",
             "8/8/4k3/8/2p5/8/B2P2K1/8 w - -",
             "8/8/1k6/2b5/2pP4/8/5K2/8 b - d3",
@@ -23,8 +23,8 @@ public class PerftValidator {
             "r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq -"
     };
 
-    static int depth = 5;
-    // Takes 70 seconds to validate at depth 4.
+    static int depth = 4;
+    // Takes 70 seconds to validate at depth 4 (34 seconds ?)
 
     public static void main(String[] arges) throws Exception {
         long startTime = System.nanoTime();

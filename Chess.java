@@ -137,6 +137,7 @@ public class Chess {
         }
         setHash();
         hashListAdd(new String(hash));
+        updatePseudoLegalMoves(turn);
         updateLegalMoves();
     }
 
@@ -469,8 +470,6 @@ public class Chess {
             throw new Exception(getMoveString(move) + " is not a legal move!");
         }
         pseudoMove(move);
-        updateHash(move);
-        hashListAdd(new String(hash));
         updateLegalMoves();
     }
 
@@ -479,14 +478,21 @@ public class Chess {
             throw new Exception("No move to undo.");
         }
         pseudoUndo();
-        hash = hashListPop().toCharArray();
+        updatePseudoLegalMoves(turn);
         updateLegalMoves();
     }
 
-    public void pseudoMove(short move) throws Exception {
-        if (!pseudoLegalMovesContains(turn, move)) {
-            throw new Exception(getMoveString(move) + " is not a pseudo-legal move!");
+    public void pseudoMove(String move) throws Exception {
+        for (int i = 0; i < pseudoLegalMovesSize[turn]; i++) {
+            if (getMoveString(pseudoLegalMoves[turn][i]).equals(move)) {
+                pseudoMove(pseudoLegalMoves[turn][i]);
+                return;
+            }
         }
+        throw new Exception("" + move + " is not a pseudo-legal move.");
+    }
+
+    public void pseudoMove(short move) throws Exception {
         reversibleMovesAdd(encodeReversibleMove(move));
         enPassantSquare = 0;
         switch (getFlag(move)) {
@@ -511,6 +517,9 @@ public class Chess {
         }
         halfMoveCount += 1;
         turn ^= 1;
+        updateHash(move);
+        hashListAdd(new String(hash));
+        updatePseudoLegalMoves(turn);
     }
 
     public void pseudoUndo() throws Exception {
@@ -631,6 +640,7 @@ public class Chess {
         }
         turn ^= 1;
         this.gameOver = false;
+        hash = hashListPop().toCharArray();
         return;
     }
 
@@ -647,51 +657,13 @@ public class Chess {
             return;
         }
         legalMovesClear();
-        updatePseudoLegalMoves(turn);
         for (int i = 0; i < pseudoLegalMovesSize[turn]; i++) {
             short move = pseudoLegalMoves[turn][i];
-            if (getFlag(move) == FLAG_CASTLE) {
-                updatePseudoLegalMoves(turn ^ 1);
-                if (inCheck()) {
-                    continue;
-                }
-                boolean kingSideCastle = ((getEndingSquare(move) & ROOK_STARTING_FILES[KINGSIDE]) != 0);
-                long king = pieceBoards[turn][KING];
-                if (kingSideCastle) {
-                    if (squareAttacked(e(king))) {
-                        continue;
-                    }
-                    if (squareAttacked(e(e(king)))) {
-                        continue;
-                    }
-                    this.pseudoMove(move);
-                    updatePseudoLegalMoves(turn);
-                    if (!enemyInCheck()) {
-                        legalMovesAdd(move);
-                    }
-                    pseudoUndo();
-                } else {
-                    if (squareAttacked(w(king))) {
-                        continue;
-                    }
-                    if (squareAttacked(w(w(king)))) {
-                        continue;
-                    }
-                    this.pseudoMove(move);
-                    updatePseudoLegalMoves(turn);
-                    if (!enemyInCheck()) {
-                        legalMovesAdd(move);
-                    }
-                    pseudoUndo();
-                }
-            } else {
-                this.pseudoMove(move);
-                updatePseudoLegalMoves(turn);
-                if (!enemyInCheck()) {
-                    legalMovesAdd(move);
-                }
-                pseudoUndo();
+            this.pseudoMove(move);
+            if (!enemyInCheck()) {
+                legalMovesAdd(move);
             }
+            pseudoUndo();
         }
         if (legalMovesSize == 0) {
             gameOver = true;
@@ -728,9 +700,33 @@ public class Chess {
 
     public boolean enemySquareAttacked(long square) { // Returns true if one of your pieces is attacking a square
         // In the case of pawns, only considers diagonal attacks.
+        // also if a king just castled and a square it castled through is attacked,
+        // including starting square, and
+        // square = where the king is now, this will return true
         if (((e(n(pieceBoards[turn][PAWN], (turn == BLACK) ? -1 : 1))
                 | w(n(pieceBoards[turn][PAWN], (turn == BLACK) ? -1 : 1))) & pieceBoards[WHITE][EMPTY] & square) != 0) {
             return true;
+        }
+        long enemyKing = pieceBoards[turn ^ 1][KING];
+        if (square == enemyKing) {
+            if (reversibleMovesSize > 0
+                    && (pushLeft(reversibleMoves[reversibleMovesSize - 1], 36) & 3) == FLAG_CASTLE) {
+                if ((pieceBoards[turn ^ 1][KING] & G_FILE) != 0) {
+                    if (enemySquareAttacked(w(enemyKing))) {
+                        return true;
+                    }
+                    if (enemySquareAttacked(w(w(enemyKing)))) {
+                        return true;
+                    }
+                } else {
+                    if (enemySquareAttacked(e(enemyKing))) {
+                        return true;
+                    }
+                    if (enemySquareAttacked(e(e(enemyKing)))) {
+                        return true;
+                    }
+                }
+            }
         }
         for (int i = 0; i < pseudoLegalMovesSize[turn]; i++) {
             if (getEndingSquare(pseudoLegalMoves[turn][i]) == square) {
@@ -1044,44 +1040,58 @@ public class Chess {
     }
 
     public long perft(int depth, boolean verbose) throws Exception {
-        if (depth == 1) {
-            if (verbose) {
-                for (int i = 0; i < legalMovesSize; i++) {
-                    System.out.println("" + getMoveString(legalMoves[i]) + ": 1");
-                }
-            }
-            System.out.println("Nodes searched: " + legalMovesSize);
-            return legalMovesSize;
-        }
         long nodes = 0;
-        for (int i = 0; i < legalMovesSize; i++) {
-            move(legalMoves[i]);
-            long divide = perft(depth - 1);
-            nodes += divide;
-            undo();
-            if (verbose) {
-                System.out.println("" + getMoveString(legalMoves[i]) + ": " + divide);
+        short[] moves = pseudoLegalMovesCopy(turn);
+        for (int i = 0; i < moves.length; i++) {
+            pseudoMove(moves[i]);
+            boolean enemyInCheck = enemyInCheck();
+            long divide = 0;
+            if (!enemyInCheck) {
+                divide = perft(depth - 1);
+                nodes += divide;
+            }
+            pseudoUndo();
+            if ((!enemyInCheck) && verbose) {
+                System.out.println("" + getMoveString(moves[i]) + ": " + divide);
             }
         }
         System.out.println("Nodes searched: " + nodes);
         return nodes;
     }
 
-    public Map<String, Long> perftMap(int depth) throws Exception {
-        Map<String, Long> map = new TreeMap<>();
+    public long perft(int depth) throws Exception {
         if (depth == 1) {
-            for (int i = 0; i < legalMovesSize; i++) {
-                map.put(getMoveString(legalMoves[i]), 1l);
-            }
-            return map;
+            updateLegalMoves();
+            return legalMovesSize;
         }
         long nodes = 0;
-        for (int i = 0; i < legalMovesSize; i++) {
-            move(legalMoves[i]);
-            long divide = perft(depth - 1);
-            nodes += divide;
-            undo();
-            map.put(getMoveString(legalMoves[i]), divide);
+        short[] moves = pseudoLegalMovesCopy(turn);
+        for (int i = 0; i < moves.length; i++) {
+            pseudoMove(moves[i]);
+            if (!enemyInCheck()) {
+                nodes += perft(depth - 1);
+            }
+            pseudoUndo();
+        }
+        return nodes;
+    }
+
+    public Map<String, Long> perftMap(int depth) throws Exception {
+        Map<String, Long> map = new TreeMap<>();
+        long nodes = 0;
+        short[] moves = pseudoLegalMovesCopy(turn);
+        for (int i = 0; i < moves.length; i++) {
+            pseudoMove(moves[i]);
+            boolean enemyInCheck = enemyInCheck();
+            long divide = 0;
+            if (!enemyInCheck) {
+                divide = perft(depth - 1);
+                nodes += divide;
+            }
+            pseudoUndo();
+            if (!enemyInCheck) {
+                map.put(getMoveString(moves[i]), divide);
+            }
         }
         map.put("total", nodes);
         return map;
@@ -1095,19 +1105,14 @@ public class Chess {
         return output;
     }
 
-    public long perft(int depth) throws Exception {
-        if (depth == 1) {
-            return legalMovesSize;
+    public short[] pseudoLegalMovesCopy(int color) {
+        short[] output = new short[pseudoLegalMovesSize[color]];
+        for (int i = 0; i < output.length; i++) {
+            output[i] = pseudoLegalMoves[color][i];
         }
-        long nodes = 0;
-        for (int i = 0; i < legalMovesSize; i++) {
-            move(legalMoves[i]);
-            nodes += perft(depth - 1);
-            undo();
-        }
-        return nodes;
+        return output;
     }
-
+   
     public void pseudoLegalMovesAdd(int color, short move) {
         pseudoLegalMoves[color][pseudoLegalMovesSize[color]] = move;
         pseudoLegalMovesSize[color]++;
@@ -1695,6 +1700,7 @@ public class Chess {
         hashListClear();
         setHash();
         hashListAdd(new String(hash));
+        updatePseudoLegalMoves(turn);
         updateLegalMoves();
         if (isValidBoardState()) {
             return;

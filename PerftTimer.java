@@ -7,17 +7,17 @@ public class PerftTimer {
     // 16.161519673 seconds with adjusting move generation slightly.
     // 15.789272655 seconds by removing hash call from pseudoLegalMove and undo.
     // .832162941 seconds!!! Perft call adjusted.
+    // .126732529 seconds by switching perft to pseudo legal move call
     public static void main(String[] args) throws Exception {
         String testFen = startpos;
         int testDepth = 4;
-
         System.out.println("Timing with:");
         System.out.println("Fen: " + testFen);
         System.out.println("Depth: " + testDepth);
-        // Lets time the method!
-        long startTime = System.nanoTime();
         Chess game = new Chess();
         game.setFromFen(testFen);
+        // Lets time the method!
+        long startTime = System.nanoTime();
         game.perft(testDepth, false);
         long endTime = System.nanoTime();
         // Lets print the duration to console!
