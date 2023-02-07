@@ -67,7 +67,7 @@ public class Stockfish {
         return map;
     }
 
-    public static boolean findBug(String fen, int depth, String... moves) throws Exception {
+    public static boolean bugExists(String fen, int depth, String... moves) throws Exception {
         Chess game = new Chess(fen);
         for (String move : moves) {
             game.move(move);
@@ -85,7 +85,7 @@ public class Stockfish {
             }
             System.out.println("Output matches.");
             System.out.println();
-            return true;
+            return false;
         } else {
             List<String> moveList = new ArrayList<>();
             for (String move : moves) {
@@ -127,7 +127,7 @@ public class Stockfish {
                     System.out.println(moveThatShouldBeIllegal + " should be illegal in this position.");
                     game.print();
                     game.printLegalMoves();
-                    return false;
+                    return true;
                 }
                 if (moveThatShouldBeLegal.length() > 0) {
                     System.out.println("Fen: " + fen);
@@ -141,7 +141,7 @@ public class Stockfish {
                     System.out.println(moveThatShouldBeLegal + " should be legal in this position.");
                     game.print();
                     game.printLegalMoves();
-                    return false;
+                    return true;
                 }
                 moveList.add(moveWithoutMatch);
                 game.move(moveWithoutMatch);
