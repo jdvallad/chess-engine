@@ -67,12 +67,18 @@ public class Stockfish {
         return map;
     }
 
-    public static boolean bugExists(String fen, int depth, String... moves) throws Exception {
+    public static boolean bugExists(String fen, int depth, boolean pseudo, String... moves) throws Exception {
         Chess game = new Chess(fen);
         for (String move : moves) {
             game.move(move);
+
         }
-        Map<String, Long> myMap = game.pseudoPerftMap(depth);
+        Map<String, Long> myMap = null;
+        if (pseudo) {
+            myMap = game.pseudoPerftMap(depth);
+        } else {
+            myMap = game.perftMap(depth);
+        }
         Map<String, Long> trueMap = Stockfish.perft(fen, depth, moves);
         if (myMap.get("total").equals(trueMap.get("total"))) {
             System.out.println("Fen: " + fen);
@@ -149,7 +155,11 @@ public class Stockfish {
                 if (depth == 0) {
                     throw new Exception("Something went wrong.");
                 }
-                myMap = game.pseudoPerftMap(depth);
+                if (pseudo) {
+                    myMap = game.pseudoPerftMap(depth);
+                } else {
+                    myMap = game.perftMap(depth);
+                }
                 trueMap = Stockfish.perft(game.getFen(), depth, moveList.toArray(String[]::new));
             }
         }

@@ -467,6 +467,7 @@ public class Chess {
 
     public void move(short move) throws Exception {
         pseudoMove(move);
+        updatePseudoLegalMoves(turn);
         updateLegalMoves();
     }
 
@@ -482,6 +483,7 @@ public class Chess {
             throw new Exception("No move to undo.");
         }
         pseudoUndo();
+        updatePseudoLegalMoves(turn);
         updateLegalMoves();
     }
    
@@ -659,7 +661,6 @@ public class Chess {
             gameOver = true;
             return;
         }
-        updatePseudoLegalMoves(turn);
         legalMovesClear();
         for (int i = 0; i < pseudoLegalMovesSize[turn]; i++) {
             short move = pseudoLegalMoves[turn][i];
@@ -1100,7 +1101,6 @@ public class Chess {
         return map;
     }
 
-    
     public long perft(int depth, boolean verbose) throws Exception {
         long nodes = 0;
         short[] moves = legalMovesCopy();
@@ -1157,6 +1157,7 @@ public class Chess {
         map.put("total", nodes);
         return map;
     }
+   
     public short[] legalMovesCopy() {
         short[] output = new short[legalMovesSize];
         for (int i = 0; i < legalMovesSize; i++) {

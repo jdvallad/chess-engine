@@ -24,12 +24,11 @@ public class PerftValidator {
     };
 
     static int depth = 4;
-    // Takes 70 seconds to validate at depth 4 (34 seconds ?)
 
     public static void main(String[] arges) throws Exception {
         long startTime = System.nanoTime();
         for (int i = 0; i < fens.length; i++) {
-            if (Stockfish.bugExists(fens[i], depth)) {
+            if (Stockfish.bugExists(fens[i], depth, true)) {
                 return;
             }
         }
