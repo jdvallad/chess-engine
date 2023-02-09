@@ -480,8 +480,7 @@ public class Chess {
                 makeStandardMove(move);
                 break;
             default:
-                makeStandardMove(move);
-                break;
+                throw new Exception("Not a valid flag.");
         }
         if (turn == BLACK) {
             fullMoveCount += 1;
@@ -607,6 +606,8 @@ public class Chess {
                 replace(startingSquare, startingColor, startingPiece);
                 replace(endingSquare, endingColor, endingPiece);
                 break;
+            default:
+                throw new Exception("Not a valid flag.");
         }
         turn ^= 1;
         this.gameOver = false;
@@ -631,6 +632,7 @@ public class Chess {
         for (int i = 0; i < pseudoLegalMovesSize[turn]; i++) {
             short move = pseudoLegalMoves[turn][i];
             this.move(move);
+            updatePseudoLegalMoves(turn);
             if (!enemyInCheck()) {
                 legalMovesAdd(move);
             }
