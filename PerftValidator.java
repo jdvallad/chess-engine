@@ -25,10 +25,10 @@ public class PerftValidator {
 
     static int depth = 4;
 
-    public static void main(String[] arges) throws Exception {
+    public static void main(String[] args) throws Exception {
         long startTime = System.nanoTime();
         for (int i = 0; i < fens.length; i++) {
-            if (Stockfish.bugExists(fens[i], depth, true)) {
+            if (Stockfish.bugExists(fens[i], depth, false)) {
                 return;
             }
         }

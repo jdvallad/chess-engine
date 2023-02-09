@@ -21,7 +21,7 @@ public class PerftTimer {
         game.setFromFen(testFen);
         // Lets time the method!
         long startTime = System.nanoTime();
-        game.pseudoPerft(testDepth, false);
+        game.perft(testDepth, false);
         long endTime = System.nanoTime();
         // Lets print the duration to console!
         long duration = (endTime - startTime);
