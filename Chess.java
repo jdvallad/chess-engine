@@ -1,4 +1,8 @@
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.TreeMap;
 
 public class Chess {
@@ -88,14 +92,10 @@ public class Chess {
     long enPassantSquare;
     int halfMoveCount;
     int fullMoveCount;
-    short[] legalMoves;
-    int legalMovesSize;
-    long[] reversibleMoves;
-    int reversibleMovesSize;
-    short[][] pseudoLegalMoves;
-    int[] pseudoLegalMovesSize;
-    String[] hashList;
-    int hashListSize;
+    Set<Short> legalMoves;
+    HashSet<Short>[] pseudoLegalMoves;
+    List<Long> reversibleMoves;
+    List<String> hashList;
     boolean gameOver;
     char[] hash;
 
@@ -104,6 +104,7 @@ public class Chess {
         setFromFen(fen);
     }
 
+    @SuppressWarnings("unchecked")
     public Chess() throws Exception {
         hash = new char[HASH_SIZE];
         turn = WHITE;
@@ -111,20 +112,15 @@ public class Chess {
         enPassantSquare = 0l;
         halfMoveCount = 0;
         fullMoveCount = 1;
-        reversibleMoves = new long[MAX_GAME_LENGTH];
-        reversibleMovesSize = 0;
-        legalMoves = new short[MAX_NUM_MOVES];
-        legalMovesSize = 0;
-        hashList = new String[MAX_GAME_LENGTH];
-        hashListSize = 0;
-        pseudoLegalMoves = new short[2][];
-        pseudoLegalMovesSize = new int[2];
+        reversibleMoves = new ArrayList<>();
+        legalMoves = new HashSet<>();
+        hashList = new ArrayList<>();
+        pseudoLegalMoves = (HashSet<Short>[]) new Set[2];
         pieceBoards = new long[COLORS.length][PIECES.length];
         combinedBoards = new long[COLORS.length];
         castleRights = new boolean[COLORS.length][SIDES.length];
         for (int color : COLORS) {
-            pseudoLegalMoves[color] = new short[MAX_NUM_MOVES];
-            pseudoLegalMovesSize[color] = 0;
+            pseudoLegalMoves[color] = new HashSet<>();
             for (int piece : PIECES) {
                 pieceBoards[color][piece] = DEFAULT_PIECEBOARDS[color][piece];
                 if (piece != EMPTY) {
@@ -136,19 +132,8 @@ public class Chess {
             }
         }
         setHash();
-        hashListAdd(new String(hash));
+        hashList.add(new String(hash));
     }
-
-    public void hashListAdd(String input) {
-        hashList[hashListSize] = input;
-        hashListSize++;
-    }
-
-    public void legalMovesAdd(short move) {
-        legalMoves[legalMovesSize] = move;
-        legalMovesSize++;
-    }
-
     public void setHash() {
         int index = 0;
         for (; index < 64; index++) {
@@ -327,7 +312,7 @@ public class Chess {
     public void printLegalMoves() {
         System.out.print("[");
         boolean flag = false;
-        for (int i = 0; i < legalMovesSize; i++) {
+        for (int i = 0; i < legalMoves.size(); i++) {
             if (flag) {
                 System.out.print(", ");
             }
@@ -1029,6 +1014,7 @@ public class Chess {
         System.out.println("Nodes searched: " + nodes);
         return nodes;
     }
+
     public long perft(int depth) throws Exception {
         if (depth == 1) {
             return legalMovesSize;
@@ -1670,7 +1656,7 @@ public class Chess {
         hashListClear();
         setHash();
         hashListAdd(new String(hash));
-       updateLegalMoves();
+        updateLegalMoves();
         if (isValidBoardState()) {
             return;
         } else {
