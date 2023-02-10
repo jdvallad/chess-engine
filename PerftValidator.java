@@ -28,7 +28,7 @@ public class PerftValidator {
     public static void main(String[] args) throws Exception {
         long startTime = System.nanoTime();
         for (int i = 0; i < fens.length; i++) {
-            if (Stockfish.bugExists(fens[i], depth, false)) {
+            if (Stockfish.bugExists(fens[i], depth)) {
                 return;
             }
         }

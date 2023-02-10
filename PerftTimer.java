@@ -12,7 +12,7 @@ public class PerftTimer {
     // 10.98 seconds with perft densepos, depth 4
     // 10.52 seconds with pseduoPerft, depth 4
     public static void main(String[] args) throws Exception {
-        String testFen = startpos;
+        String testFen = densepos;
         int testDepth = 4;
         System.out.println("Timing with:");
         System.out.println("Fen: " + testFen);

@@ -1012,68 +1012,6 @@ public class Chess {
         return count;
     }
 
-    public long pseudoPerft(int depth, boolean verbose) throws Exception {
-        long nodes = 0;
-        updatePseudoLegalMoves(turn);
-        short[] moves = pseudoLegalMovesCopy(turn);
-        for (int i = 0; i < moves.length; i++) {
-            move(moves[i]);
-            updatePseudoLegalMoves(turn);
-            boolean enemyInCheck = enemyInCheck();
-            long divide = 0;
-            if (!enemyInCheck) {
-                divide = pseudoPerft(depth - 1);
-                nodes += divide;
-            }
-            undo();
-            if ((!enemyInCheck) && verbose) {
-                System.out.println("" + getMoveString(moves[i]) + ": " + divide);
-            }
-        }
-        System.out.println("Nodes searched: " + nodes);
-        return nodes;
-    }
-
-    public long pseudoPerft(int depth) throws Exception {
-        if (depth == 0) {
-            return 1;
-        }
-        long nodes = 0;
-        short[] moves = pseudoLegalMovesCopy(turn);
-        for (int i = 0; i < moves.length; i++) {
-            move(moves[i]);
-            updatePseudoLegalMoves(turn);
-            if (!enemyInCheck()) {
-                nodes += pseudoPerft(depth - 1);
-            }
-            undo();
-        }
-        return nodes;
-    }
-
-    public Map<String, Long> pseudoPerftMap(int depth) throws Exception {
-        Map<String, Long> map = new TreeMap<>();
-        long nodes = 0;
-        updatePseudoLegalMoves(turn);
-        short[] moves = pseudoLegalMovesCopy(turn);
-        for (int i = 0; i < moves.length; i++) {
-            move(moves[i]);
-            updatePseudoLegalMoves(turn);
-            boolean enemyInCheck = enemyInCheck();
-            long divide = 0;
-            if (!enemyInCheck) {
-                divide = pseudoPerft(depth - 1);
-                nodes += divide;
-            }
-            undo();
-            if (!enemyInCheck) {
-                map.put(getMoveString(moves[i]), divide);
-            }
-        }
-        map.put("total", nodes);
-        return map;
-    }
-
     public long perft(int depth, boolean verbose) throws Exception {
         long nodes = 0;
         updateLegalMoves();
@@ -1091,7 +1029,6 @@ public class Chess {
         System.out.println("Nodes searched: " + nodes);
         return nodes;
     }
-
     public long perft(int depth) throws Exception {
         if (depth == 1) {
             return legalMovesSize;
