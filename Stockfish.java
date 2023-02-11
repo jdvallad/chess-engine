@@ -11,8 +11,9 @@ import java.util.TreeMap;
 
 public class Stockfish {
 
+    private static String executablePath = "/home/joshua/Repositories/chess-engine/stockfish.exe";
+
     public static void terminal() throws Exception {
-        String executablePath = "./stockfish.exe";
         ProcessBuilder builder = new ProcessBuilder(executablePath);
         builder.redirectOutput(Redirect.INHERIT);
         Process process = builder.start();
@@ -35,7 +36,6 @@ public class Stockfish {
 
     public static Map<String, Long> perft(String fen, int depth, String... moves) throws Exception {
         Map<String, Long> map = new TreeMap<>();
-        String executablePath = "/mnt/c/Users/joshu/Documents/stockfish.exe";
         ProcessBuilder builder = new ProcessBuilder(executablePath);
         Process process = builder.start();
         OutputStream stdin = process.getOutputStream();

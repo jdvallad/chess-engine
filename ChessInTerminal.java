@@ -1,4 +1,6 @@
+import java.util.Random;
 import java.util.Scanner;
+import java.util.Set;
 
 public class ChessInTerminal {
     public static void main(String[] args) throws Exception {
@@ -38,7 +40,7 @@ public class ChessInTerminal {
                     input.close();
                     return;
                 case "undo":
-                    if (game.getLength() >= 1) {
+                    if (game.getGameLength() >= 1) {
                         game.undo();
                         System.out.println("\033c");
                         game.print(ascii, flip);
@@ -46,8 +48,7 @@ public class ChessInTerminal {
                     }
                     break;
                 case "random":
-                    int random = (int) (Math.random() * (double) game.legalMovesSize);
-                    game.move(game.legalMoves[random]);
+                    game.move(getRandomSetElement(game.legalMoves));
                     System.out.println("\033c");
                     game.print(ascii, flip);
                     game.printLegalMoves();
@@ -74,5 +75,9 @@ public class ChessInTerminal {
                     break;
             }
         }
+    }
+
+    static <E> E getRandomSetElement(Set<E> set) {
+        return set.stream().skip(new Random().nextInt(set.size())).findFirst().orElse(null);
     }
 }

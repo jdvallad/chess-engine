@@ -1,4 +1,5 @@
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -93,7 +94,7 @@ public class Chess {
     int halfMoveCount;
     int fullMoveCount;
     Set<Short> legalMoves;
-    HashSet<Short>[] pseudoLegalMoves;
+    Set<Short>[] pseudoLegalMoves;
     List<Long> reversibleMoves;
     List<String> hashList;
     boolean gameOver;
@@ -115,7 +116,7 @@ public class Chess {
         reversibleMoves = new ArrayList<>();
         legalMoves = new HashSet<>();
         hashList = new ArrayList<>();
-        pseudoLegalMoves = (HashSet<Short>[]) new Set[2];
+        pseudoLegalMoves = (Set<Short>[]) new Set[2];
         pieceBoards = new long[COLORS.length][PIECES.length];
         combinedBoards = new long[COLORS.length];
         castleRights = new boolean[COLORS.length][SIDES.length];
@@ -134,6 +135,7 @@ public class Chess {
         setHash();
         hashList.add(new String(hash));
     }
+
     public void setHash() {
         int index = 0;
         for (; index < 64; index++) {
@@ -312,43 +314,15 @@ public class Chess {
     public void printLegalMoves() {
         System.out.print("[");
         boolean flag = false;
-        for (int i = 0; i < legalMoves.size(); i++) {
+        for (short move : legalMoves) {
             if (flag) {
                 System.out.print(", ");
             }
             flag = true;
-            System.out.print(getMoveString(legalMoves[i]) + "");
+            System.out.print(getMoveString(move) + "");
         }
 
         System.out.println("]");
-    }
-
-    public void printPseudoLegalMoves(int turn) {
-        System.out.print("[");
-        boolean flag = false;
-        for (int i = 0; i < pseudoLegalMovesSize[turn]; i++) {
-            if (flag) {
-                System.out.print(", ");
-            }
-            flag = true;
-            long startingSquare = getStartingSquare(pseudoLegalMoves[turn][i]);
-            long endingSquare = getEndingSquare(pseudoLegalMoves[turn][i]);
-            char startingFile = (char) ('a' + getFileIndex(startingSquare));
-            char startingRank = (char) ('1' + getRankIndex(startingSquare));
-            char endingFile = (char) ('a' + getFileIndex(endingSquare));
-            char endingRank = (char) ('1' + getRankIndex(endingSquare));
-            System.out.print("" + startingFile + startingRank + endingFile + endingRank);
-        }
-        System.out.println("]");
-    }
-
-    public boolean isLegalMove(String move) {
-        for (int i = 0; i < legalMovesSize; i++) {
-            if (getMoveString(legalMoves[i]).equals(move)) {
-                return true;
-            }
-        }
-        return false;
     }
 
     public void printSimple(boolean flipped) {
@@ -427,29 +401,20 @@ public class Chess {
         System.out.println("  a   b   c   d   e   f   g   h");
     }
 
-    public boolean legalMovesContains(short move) {
-        for (int i = 0; i < legalMovesSize; i++) {
-            if (legalMoves[i] == move) {
-                return true;
-            }
-        }
-        return false;
-    }
-
     //
 
-    public void move(String move) throws Exception {
-        for (int i = 0; i < legalMovesSize; i++) {
-            if (getMoveString(legalMoves[i]).equals(move)) {
-                move(legalMoves[i]);
+    public void move(String moveString) throws Exception {
+        for (short move : legalMoves) {
+            if (getMoveString(move).equals(moveString)) {
+                move(move);
                 return;
             }
         }
-        throw new Exception("" + move + " is not a legal move.");
+        throw new Exception("" + moveString + " is not a legal move.");
     }
 
     public void move(short move) throws Exception {
-        reversibleMovesAdd(encodeReversibleMove(move));
+        reversibleMoves.add(encodeReversibleMove(move));
         enPassantSquare = 0;
         switch (getFlag(move)) {
             case FLAG_PROMOTION:
@@ -473,11 +438,11 @@ public class Chess {
         halfMoveCount += 1;
         turn ^= 1;
         updateHash(move);
-        hashListAdd(new String(hash));
+        hashList.add(new String(hash));
     }
 
     public void undo() throws Exception {
-        if (reversibleMovesSize == 0) {
+        if (reversibleMoves.size() == 0) {
             throw new Exception("No move to undo.");
         }
         // castleRights (4 bits)
@@ -491,7 +456,7 @@ public class Chess {
         int startingSquareOffset = 0; // 6 bits
         long endingSquare = 0l;
         long startingSquare = 0l;
-        long input = reversibleMovesPop();
+        long input = reversibleMoves.remove(reversibleMoves.size() - 1);
         long push = 0;
         for (int color : COLORS_REVERSED) {
             for (int side : SIDES_REVERSED) {
@@ -596,7 +561,7 @@ public class Chess {
         }
         turn ^= 1;
         this.gameOver = false;
-        hash = hashListPop().toCharArray();
+        hash = hashList.remove(hashList.size() - 1).toCharArray();
         return;
     }
 
@@ -604,7 +569,7 @@ public class Chess {
         if (gameOver) {
             return;
         }
-        if (hashListFrequency(hashListGet(hashListSize - 1)) == 5) {
+        if (Collections.frequency(hashList, hashList.get(hashList.size() - 1)) == 5) {
             gameOver = true; // 5 fold repetition
             return;
         }
@@ -612,25 +577,24 @@ public class Chess {
             gameOver = true;
             return;
         }
-        legalMovesClear();
+        legalMoves.clear();
         updatePseudoLegalMoves(turn);
-        for (int i = 0; i < pseudoLegalMovesSize[turn]; i++) {
-            short move = pseudoLegalMoves[turn][i];
+        for (short move : pseudoLegalMoves[turn]) {
             this.move(move);
             updatePseudoLegalMoves(turn);
             if (!enemyInCheck()) {
-                legalMovesAdd(move);
+                legalMoves.add(move);
             }
             undo();
         }
-        if (legalMovesSize == 0) {
+        if (legalMoves.size() == 0) {
             gameOver = true;
         }
         return;
     }
 
     public void updatePseudoLegalMoves(int color) {
-        pseudoLegalMovesClear(color);
+        pseudoLegalMoves[color].clear();
         addPseudoLegalPawnMoves(color);
         addPseudoLegalKnightMoves(color);
         addPseudoLegalBishopMoves(color);
@@ -667,8 +631,8 @@ public class Chess {
         }
         long enemyKing = pieceBoards[turn ^ 1][KING];
         if (square == enemyKing) {
-            if (reversibleMovesSize > 0
-                    && (pushLeft(reversibleMoves[reversibleMovesSize - 1], 36) & 3) == FLAG_CASTLE) {
+            if (reversibleMoves.size() > 0
+                    && (pushLeft(reversibleMoves.get(reversibleMoves.size() - 1), 36) & 3) == FLAG_CASTLE) {
                 if ((pieceBoards[turn ^ 1][KING] & G_FILE) != 0) {
                     if (enemySquareAttacked(w(enemyKing))) {
                         return true;
@@ -686,9 +650,9 @@ public class Chess {
                 }
             }
         }
-        for (int i = 0; i < pseudoLegalMovesSize[turn]; i++) {
-            if (getEndingSquare(pseudoLegalMoves[turn][i]) == square) {
-                long startingSquare = getStartingSquare(pseudoLegalMoves[turn][i]);
+        for (short move : pseudoLegalMoves[turn]) {
+            if (getEndingSquare(move) == square) {
+                long startingSquare = getStartingSquare(move);
                 int attackingPiece = getPiece(startingSquare);
                 if (attackingPiece == PAWN && getFileIndex(square) == getFileIndex(startingSquare)) {
                     continue;
@@ -697,31 +661,6 @@ public class Chess {
             }
         }
         return false;
-    }
-
-    public short getMoveShort(String moveString) {
-        short move = 0;
-        for (int i = 0; i < legalMovesSize; i++) {
-            if (getMoveString(legalMoves[i]).equals(moveString)) {
-                move = legalMoves[i];
-                break;
-            }
-        }
-        return move;
-    }
-
-    public boolean pseudoLegalMovesContains(int x, short move) {
-        for (int i = 0; i < pseudoLegalMovesSize[x]; i++) {
-            if (pseudoLegalMoves[x][i] == move) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    public void reversibleMovesAdd(long move) {
-        reversibleMoves[reversibleMovesSize] = move;
-        reversibleMovesSize++;
     }
 
     public long encodeReversibleMove(short move) {
@@ -850,31 +789,15 @@ public class Chess {
 
     public void printPastMoves() {
         System.out.print("[");
-        for (int i = 0; i < reversibleMovesSize; i++) {
-            System.out.print(getMoveStringReversible(reversibleMoves[i]) + ",");
+        for (long move : reversibleMoves) {
+            System.out.print(getMoveStringReversible(move) + ",");
         }
         System.out.println("]");
 
     }
 
-    public long reversibleMovesPop() throws Exception {
-        if (reversibleMovesSize < 1) {
-            throw new Exception();
-        }
-        reversibleMovesSize--;
-        return reversibleMoves[reversibleMovesSize];
-    }
-
-    public String hashListPop() throws Exception {
-        if (hashListSize < 1) {
-            throw new Exception();
-        }
-        hashListSize--;
-        return hashList[hashListSize];
-    }
-
-    public int getLength() {
-        return reversibleMovesSize;
+    public int getGameLength() {
+        return reversibleMoves.size();
     }
 
     public void makePromotionMove(short move) {
@@ -972,43 +895,18 @@ public class Chess {
         }
     }
 
-    public void pseudoLegalMovesClear(int theTurn) {
-        pseudoLegalMovesSize[theTurn] = 0;
-    }
-
-    public void legalMovesClear() {
-        legalMovesSize = 0;
-    }
-
-    public String hashListGet(int index) throws Exception {
-        if (index >= hashListSize) {
-            throw new Exception();
-        }
-        return hashList[index];
-    }
-
-    public int hashListFrequency(String move) {
-        int count = 0;
-        for (int i = 0; i < hashListSize; i++) {
-            if (hashList[i].equals(move)) {
-                count++;
-            }
-        }
-        return count;
-    }
-
     public long perft(int depth, boolean verbose) throws Exception {
         long nodes = 0;
         updateLegalMoves();
-        short[] moves = legalMovesCopy();
-        for (int i = 0; i < moves.length; i++) {
-            move(moves[i]);
+        List<Short> moves = new ArrayList<>(legalMoves);
+        for (short move : moves) {
+            move(move);
             updateLegalMoves();
             long divide = perft(depth - 1);
             nodes += divide;
             undo();
             if (verbose) {
-                System.out.println("" + getMoveString(moves[i]) + ": " + divide);
+                System.out.println("" + getMoveString(move) + ": " + divide);
             }
         }
         System.out.println("Nodes searched: " + nodes);
@@ -1017,12 +915,12 @@ public class Chess {
 
     public long perft(int depth) throws Exception {
         if (depth == 1) {
-            return legalMovesSize;
+            return legalMoves.size();
         }
         long nodes = 0;
-        short[] moves = legalMovesCopy();
-        for (int i = 0; i < moves.length; i++) {
-            move(moves[i]);
+        List<Short> moves = new ArrayList<>(legalMoves);
+        for (short move : moves) {
+            move(move);
             updateLegalMoves();
             nodes += perft(depth - 1);
             undo();
@@ -1034,45 +932,17 @@ public class Chess {
         Map<String, Long> map = new TreeMap<>();
         long nodes = 0;
         updateLegalMoves();
-        short[] moves = legalMovesCopy();
-        for (int i = 0; i < moves.length; i++) {
-            move(moves[i]);
+        List<Short> moves = new ArrayList<>(legalMoves);
+        for (short move : moves) {
+            move(move);
             updateLegalMoves();
-            boolean enemyInCheck = enemyInCheck();
-            long divide = 0;
-            if (!enemyInCheck) {
-                divide = perft(depth - 1);
-                nodes += divide;
-            }
+            long divide = perft(depth - 1);
+            nodes += divide;
             undo();
-            if (!enemyInCheck) {
-                map.put(getMoveString(moves[i]), divide);
-            }
+            map.put(getMoveString(move), divide);
         }
         map.put("total", nodes);
         return map;
-    }
-
-    public short[] legalMovesCopy() {
-        short[] output = new short[legalMovesSize];
-        for (int i = 0; i < legalMovesSize; i++) {
-            output[i] = legalMoves[i];
-        }
-        return output;
-    }
-
-    public short[] pseudoLegalMovesCopy(int color) {
-        short[] output = new short[pseudoLegalMovesSize[color]];
-        for (int i = 0; i < output.length; i++) {
-            output[i] = pseudoLegalMoves[color][i];
-        }
-        return output;
-    }
-
-    public void pseudoLegalMovesAdd(int color, short move) {
-        pseudoLegalMoves[color][pseudoLegalMovesSize[color]] = move;
-        pseudoLegalMovesSize[color]++;
-
     }
 
     public void addPseudoLegalPawnMoves(int color) {
@@ -1094,9 +964,7 @@ public class Chess {
                 }
                 startingSquare = s(endingSquare, 2 * offset);
                 move = encodeMove(startingSquare, endingSquare, 0, FLAG_STANDARD);
-                if (!pseudoLegalMovesContains(color, move)) {
-                    pseudoLegalMovesAdd(color, move);
-                }
+                pseudoLegalMoves[color].add(move);
             }
         }
         startingPawns = pieceBoards[color][PAWN];
@@ -1112,15 +980,11 @@ public class Chess {
                 if ((endingSquare & getBackRank(color ^ 1)) != 0) {
                     for (int piece : PROMOTION_PIECES) {
                         move = encodeMove(startingSquare, endingSquare, piece, FLAG_PROMOTION);
-                        if (!pseudoLegalMovesContains(color, move)) {
-                            pseudoLegalMovesAdd(color, move);
-                        }
+                        pseudoLegalMoves[color].add(move);
                     }
                 } else {
                     move = encodeMove(startingSquare, endingSquare, 0, FLAG_STANDARD);
-                    if (!pseudoLegalMovesContains(color, move)) {
-                        pseudoLegalMovesAdd(color, move);
-                    }
+                    pseudoLegalMoves[color].add(move);
                 }
             }
         }
@@ -1140,20 +1004,14 @@ public class Chess {
                 if ((endingSquare & getBackRank(color ^ 1)) != 0) {
                     for (int piece : PROMOTION_PIECES) {
                         move = encodeMove(startingSquare, endingSquare, piece, FLAG_PROMOTION);
-                        if (!pseudoLegalMovesContains(color, move)) {
-                            pseudoLegalMovesAdd(color, move);
-                        }
+                        pseudoLegalMoves[color].add(move);
                     }
                 } else if (endingSquare == enPassantSquare) {
                     move = encodeMove(startingSquare, endingSquare, 0, FLAG_EN_PASSANT);
-                    if (!pseudoLegalMovesContains(color, move)) {
-                        pseudoLegalMovesAdd(color, move);
-                    }
+                    pseudoLegalMoves[color].add(move);
                 } else {
                     move = encodeMove(startingSquare, endingSquare, 0, FLAG_STANDARD);
-                    if (!pseudoLegalMovesContains(color, move)) {
-                        pseudoLegalMovesAdd(color, move);
-                    }
+                    pseudoLegalMoves[color].add(move);
                 }
             }
         }
@@ -1173,20 +1031,14 @@ public class Chess {
                 if ((endingSquare & getBackRank(color ^ 1)) != 0) {
                     for (int piece : PROMOTION_PIECES) {
                         move = encodeMove(startingSquare, endingSquare, piece, FLAG_PROMOTION);
-                        if (!pseudoLegalMovesContains(color, move)) {
-                            pseudoLegalMovesAdd(color, move);
-                        }
+                        pseudoLegalMoves[color].add(move);
                     }
                 } else if (endingSquare == enPassantSquare) {
                     move = encodeMove(startingSquare, endingSquare, 0, FLAG_EN_PASSANT);
-                    if (!pseudoLegalMovesContains(color, move)) {
-                        pseudoLegalMovesAdd(color, move);
-                    }
+                    pseudoLegalMoves[color].add(move);
                 } else {
                     move = encodeMove(startingSquare, endingSquare, 0, FLAG_STANDARD);
-                    if (!pseudoLegalMovesContains(color, move)) {
-                        pseudoLegalMovesAdd(color, move);
-                    }
+                    pseudoLegalMoves[color].add(move);
                 }
             }
         }
@@ -1207,16 +1059,12 @@ public class Chess {
                     long destinationSquare = compass(startingSquare, offset);
                     while (destinationSquare != 0 && (destinationSquare & combined) == 0) {
                         short move = encodeMove(startingSquare, destinationSquare, 0, FLAG_STANDARD);
-                        if (!pseudoLegalMovesContains(color, move)) {
-                            pseudoLegalMovesAdd(color, move);
-                        }
+                        pseudoLegalMoves[color].add(move);
                         destinationSquare = compass(destinationSquare, offset);
                     }
                     if ((destinationSquare & combinedBoards[color ^ 1]) != 0) {
                         short move = encodeMove(startingSquare, destinationSquare, 0, FLAG_STANDARD);
-                        if (!pseudoLegalMovesContains(color, move)) {
-                            pseudoLegalMovesAdd(color, move);
-                        }
+                        pseudoLegalMoves[color].add(move);
                     }
                 }
             }
@@ -1237,16 +1085,12 @@ public class Chess {
                     long destinationSquare = compass(startingSquare, offset);
                     while (destinationSquare != 0 && (destinationSquare & combined) == 0) {
                         short move = encodeMove(startingSquare, destinationSquare, 0, FLAG_STANDARD);
-                        if (!pseudoLegalMovesContains(color, move)) {
-                            pseudoLegalMovesAdd(color, move);
-                        }
+                        pseudoLegalMoves[color].add(move);
                         destinationSquare = compass(destinationSquare, offset);
                     }
                     if ((destinationSquare & combinedBoards[color ^ 1]) != 0) {
                         short move = encodeMove(startingSquare, destinationSquare, 0, FLAG_STANDARD);
-                        if (!pseudoLegalMovesContains(color, move)) {
-                            pseudoLegalMovesAdd(color, move);
-                        }
+                        pseudoLegalMoves[color].add(move);
                     }
                 }
             }
@@ -1267,32 +1111,24 @@ public class Chess {
                     long destinationSquare = compass(startingSquare, offset);
                     while (destinationSquare != 0 && (destinationSquare & combined) == 0) {
                         short move = encodeMove(startingSquare, destinationSquare, 0, FLAG_STANDARD);
-                        if (!pseudoLegalMovesContains(color, move)) {
-                            pseudoLegalMovesAdd(color, move);
-                        }
+                        pseudoLegalMoves[color].add(move);
                         destinationSquare = compass(destinationSquare, offset);
                     }
                     if ((destinationSquare & combinedBoards[color ^ 1]) != 0) {
                         short move = encodeMove(startingSquare, destinationSquare, 0, FLAG_STANDARD);
-                        if (!pseudoLegalMovesContains(color, move)) {
-                            pseudoLegalMovesAdd(color, move);
-                        }
+                        pseudoLegalMoves[color].add(move);
                     }
                 }
                 for (int offset : ROOK_OFFSETS) {
                     long destinationSquare = compass(startingSquare, offset);
                     while (destinationSquare != 0 && (destinationSquare & combined) == 0) {
                         short move = encodeMove(startingSquare, destinationSquare, 0, FLAG_STANDARD);
-                        if (!pseudoLegalMovesContains(color, move)) {
-                            pseudoLegalMovesAdd(color, move);
-                        }
+                        pseudoLegalMoves[color].add(move);
                         destinationSquare = compass(destinationSquare, offset);
                     }
                     if ((destinationSquare & combinedBoards[color ^ 1]) != 0) {
                         short move = encodeMove(startingSquare, destinationSquare, 0, FLAG_STANDARD);
-                        if (!pseudoLegalMovesContains(color, move)) {
-                            pseudoLegalMovesAdd(color, move);
-                        }
+                        pseudoLegalMoves[color].add(move);
                     }
                 }
             }
@@ -1320,9 +1156,7 @@ public class Chess {
                     startingSquare = compass(endingSquare, offset) & knights;
                     if (startingSquare != 0) {
                         move = encodeMove(startingSquare, endingSquare, 0, FLAG_STANDARD);
-                        if (!pseudoLegalMovesContains(color, move)) {
-                            pseudoLegalMovesAdd(color, move);
-                        }
+                        pseudoLegalMoves[color].add(move);
                     }
                 }
             }
@@ -1337,18 +1171,14 @@ public class Chess {
             long destinationSquare = compass(kings, offset) & possibleSquares;
             if (destinationSquare != 0) {
                 short move = encodeMove(kings, destinationSquare, 0, FLAG_STANDARD);
-                if (!pseudoLegalMovesContains(color, move)) {
-                    pseudoLegalMovesAdd(color, move);
-                }
+                pseudoLegalMoves[color].add(move);
             }
         }
         for (int offset : BISHOP_OFFSETS) {
             long destinationSquare = compass(kings, offset) & possibleSquares;
             if (destinationSquare != 0) {
                 short move = encodeMove(kings, destinationSquare, 0, FLAG_STANDARD);
-                if (!pseudoLegalMovesContains(color, move)) {
-                    pseudoLegalMovesAdd(color, move);
-                }
+                pseudoLegalMoves[color].add(move);
             }
         }
         return;
@@ -1363,9 +1193,7 @@ public class Chess {
             if (gap == 0) {
                 long destinationSquare = e(e(e(kings)));
                 short move = encodeMove(kings, destinationSquare, 0, FLAG_CASTLE);
-                if (!pseudoLegalMovesContains(color, move)) {
-                    pseudoLegalMovesAdd(color, move);
-                }
+                pseudoLegalMoves[color].add(move);
             }
         }
         if (castleRights[color][QUEENSIDE]) {
@@ -1373,9 +1201,7 @@ public class Chess {
             if (gap == 0) {
                 long destinationSquare = w(w(w(w(kings))));
                 short move = encodeMove(kings, destinationSquare, 0, FLAG_CASTLE);
-                if (!pseudoLegalMovesContains(color, move)) {
-                    pseudoLegalMovesAdd(color, move);
-                }
+                pseudoLegalMoves[color].add(move);
             }
         }
     }
@@ -1652,24 +1478,16 @@ public class Chess {
             temp = fen.substring(stringIndex);
             fullMoveCount = Integer.parseInt(temp);
         }
-        reversibleMovesClear();
-        hashListClear();
+        reversibleMoves.clear();
+        hashList.clear();
         setHash();
-        hashListAdd(new String(hash));
+        hashList.add(new String(hash));
         updateLegalMoves();
         if (isValidBoardState()) {
             return;
         } else {
             throw new Exception("Not a valid fen.");
         }
-    }
-
-    public void hashListClear() {
-        hashListSize = 0;
-    }
-
-    public void reversibleMovesClear() {
-        reversibleMovesSize = 0;
     }
 
     public boolean isValidBoardState() {
@@ -1740,7 +1558,15 @@ public class Chess {
         return Character.isUpperCase(c) ? WHITE : BLACK;
     }
 
-    // Long Board Methods
+    public boolean isLegalMove(String moveString) {
+        for (short move : legalMoves) {
+            if (getMoveString(move).equals(moveString)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     public static int getRankIndex(long square) {
         int zeroes = Long.numberOfTrailingZeros(square);
         return (zeroes / 8);
@@ -1766,7 +1592,7 @@ public class Chess {
 
     public static long compass(long input, int offset) {
         int east = (int) (3 & pushLeft(offset, 2));
-        int north = (int) (3 & offset);
+        int north = (3 & offset);
         if ((offset & pushRight(1l, 8)) != 0) {
             east = -east;
         }
