@@ -12,7 +12,7 @@ import java.util.TreeMap;
 public class Stockfish {
 
     public static void terminal() throws Exception {
-        String executablePath = "/mnt/c/Users/joshu/Documents/stockfish.exe";
+        String executablePath = "./stockfish.exe";
         ProcessBuilder builder = new ProcessBuilder(executablePath);
         builder.redirectOutput(Redirect.INHERIT);
         Process process = builder.start();
