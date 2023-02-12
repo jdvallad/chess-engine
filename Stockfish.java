@@ -34,7 +34,17 @@ public class Stockfish {
         scan.close();
     }
 
-    public static Map<String, Long> perft(String fen, int depth, String... moves) throws Exception {
+    public static long perft(String fen, int depth, boolean verbose, String... moves) throws Exception {
+        Map<String, Long> map = perftMap(fen, depth, moves);
+        if (verbose) {
+            for (String key : map.keySet()) {
+                System.out.println(key + ": " + map.get(key));
+            }
+        }
+        return map.get("total");
+    }
+
+    public static Map<String, Long> perftMap(String fen, int depth, String... moves) throws Exception {
         Map<String, Long> map = new TreeMap<>();
         ProcessBuilder builder = new ProcessBuilder(executablePath);
         Process process = builder.start();
@@ -71,10 +81,9 @@ public class Stockfish {
         Chess game = new Chess(fen);
         for (String move : moves) {
             game.move(move);
-
         }
         Map<String, Long> myMap = game.perftMap(depth);
-        Map<String, Long> trueMap = Stockfish.perft(fen, depth, moves);
+        Map<String, Long> trueMap = Stockfish.perftMap(fen, depth, moves);
         if (myMap.get("total").equals(trueMap.get("total"))) {
             System.out.println("Fen: " + fen);
             if (moves.length > 0) {
@@ -127,6 +136,7 @@ public class Stockfish {
                     }
                     System.out.println(moveThatShouldBeIllegal + " should be illegal in this position.");
                     game.print();
+
                     game.printLegalMoves();
                     return true;
                 }
@@ -144,6 +154,9 @@ public class Stockfish {
                     game.printLegalMoves();
                     return true;
                 }
+                if (moveWithoutMatch.length() == 0) {
+                    throw new Exception("Something went wrong.");
+                }
                 moveList.add(moveWithoutMatch);
                 game.move(moveWithoutMatch);
                 depth--;
@@ -151,7 +164,7 @@ public class Stockfish {
                     throw new Exception("Something went wrong.");
                 }
                 myMap = game.perftMap(depth);
-                trueMap = Stockfish.perft(game.getFen(), depth, moveList.toArray(String[]::new));
+                trueMap = Stockfish.perftMap(game.getFen(), depth, moveList.toArray(String[]::new));
             }
         }
     }

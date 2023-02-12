@@ -40,7 +40,7 @@ public class ChessInTerminal {
                     input.close();
                     return;
                 case "undo":
-                    if (game.getGameLength() >= 1) {
+                    if (game.reversibleMoves.size() >= 1) {
                         game.undo();
                         System.out.println("\033c");
                         game.print(ascii, flip);

@@ -38,26 +38,6 @@ public class Chess {
     public static final byte FLAG_CASTLE = 1;
     public static final byte FLAG_EN_PASSANT = 2;
     public static final byte FLAG_PROMOTION = 3;
-    public static final int N_OFFSET = 1;
-    public static final int S_OFFSET = 129;
-    public static final int E_OFFSET = 4;
-    public static final int W_OFFSET = 260;
-    public static final int NE_OFFSET = 5;
-    public static final int NW_OFFSET = 261;
-    public static final int SE_OFFSET = 133;
-    public static final int SW_OFFSET = 389;
-    public static final int NNE_OFFSET = 6;
-    public static final int NNW_OFFSET = 262;
-    public static final int NEE_OFFSET = 9;
-    public static final int NWW_OFFSET = 265;
-    public static final int SEE_OFFSET = 137;
-    public static final int SWW_OFFSET = 393;
-    public static final int SSW_OFFSET = 390;
-    public static final int SSE_OFFSET = 134;
-    public static final int[] KNIGHT_OFFSETS = new int[] { NEE_OFFSET, NNE_OFFSET, NNW_OFFSET, NWW_OFFSET, SWW_OFFSET,
-            SSW_OFFSET, SSE_OFFSET, SEE_OFFSET };
-    public static final int[] ROOK_OFFSETS = new int[] { N_OFFSET, S_OFFSET, E_OFFSET, W_OFFSET };
-    public static final int[] BISHOP_OFFSETS = new int[] { NE_OFFSET, NW_OFFSET, SE_OFFSET, SW_OFFSET };
     public static final int[] PROMOTION_PIECES = { QUEEN, KNIGHT, BISHOP, ROOK };
     public static final byte[] FLAGS = new byte[] { FLAG_STANDARD, FLAG_CASTLE, FLAG_EN_PASSANT, FLAG_PROMOTION };
     public static final int[] PIECES = new int[] { QUEEN, KNIGHT, BISHOP, ROOK, KING, PAWN, EMPTY };
@@ -94,18 +74,18 @@ public class Chess {
     int halfMoveCount;
     int fullMoveCount;
     Set<Short> legalMoves;
-    Set<Short>[] pseudoLegalMoves;
+    List<Set<Short>> pseudoLegalMoves;
     List<Long> reversibleMoves;
     List<String> hashList;
     boolean gameOver;
     char[] hash;
 
+    // Constructors
     public Chess(String fen) throws Exception {
         this();
         setFromFen(fen);
     }
 
-    @SuppressWarnings("unchecked")
     public Chess() throws Exception {
         hash = new char[HASH_SIZE];
         turn = WHITE;
@@ -116,12 +96,12 @@ public class Chess {
         reversibleMoves = new ArrayList<>();
         legalMoves = new HashSet<>();
         hashList = new ArrayList<>();
-        pseudoLegalMoves = (Set<Short>[]) new Set[2];
+        pseudoLegalMoves = new ArrayList<>();
         pieceBoards = new long[COLORS.length][PIECES.length];
         combinedBoards = new long[COLORS.length];
         castleRights = new boolean[COLORS.length][SIDES.length];
         for (int color : COLORS) {
-            pseudoLegalMoves[color] = new HashSet<>();
+            pseudoLegalMoves.add(new HashSet<>());
             for (int piece : PIECES) {
                 pieceBoards[color][piece] = DEFAULT_PIECEBOARDS[color][piece];
                 if (piece != EMPTY) {
@@ -134,8 +114,10 @@ public class Chess {
         }
         setHash();
         hashList.add(new String(hash));
+        getLegalMoves(legalMoves);
     }
 
+    // Hash Methods
     public void setHash() {
         int index = 0;
         for (; index < 64; index++) {
@@ -228,6 +210,7 @@ public class Chess {
         }
     }
 
+    // Print Board Methods
     public void print(boolean ascii, boolean flipped) {
         if (ascii) {
             printSimple(flipped);
@@ -311,10 +294,26 @@ public class Chess {
         return output;
     }
 
-    public void printLegalMoves() {
+    public void printLegalMoves() throws Exception {
+        getLegalMoves(legalMoves);
         System.out.print("[");
         boolean flag = false;
         for (short move : legalMoves) {
+            if (flag) {
+                System.out.print(", ");
+            }
+            flag = true;
+            System.out.print(getMoveString(move) + "");
+        }
+
+        System.out.println("]");
+    }
+
+    public void printPseudoLegalMoves() throws Exception {
+        getPseudoLegalMoves(pseudoLegalMoves.get(turn));
+        System.out.print("[");
+        boolean flag = false;
+        for (short move : pseudoLegalMoves.get(turn)) {
             if (flag) {
                 System.out.print(", ");
             }
@@ -374,35 +373,6 @@ public class Chess {
         System.out.println("  a   b   c   d   e   f   g   h\r\n");
     }
 
-    public void printSimple() {
-        boolean flag = false;
-        System.out.print("\r\n|---|---|---|---|---|---|---|---|\r\n|");
-        for (long rank : RANKS_REVERSED) {
-            if (flag) {
-                System.out.print("\r\n|---|---|---|---|---|---|---|---|\r\n|");
-            }
-            flag = true;
-            foundPiece: for (long file : FILES) {
-                long square = rank & file;
-                for (int color : COLORS) {
-                    for (int piece : PIECES) {
-                        if ((pieceBoards[color][piece] & square) == square) {
-                            System.out.print(" " + PIECE_CHARS_ASCII[color][piece] + " |");
-                            if (file == H_FILE) {
-                                System.out.print(" " + (1 + getRankIndex(rank & file)));
-                            }
-                            continue foundPiece;
-                        }
-                    }
-                }
-            }
-        }
-        System.out.println("\r\n|---|---|---|---|---|---|---|---|\r\n");
-        System.out.println("  a   b   c   d   e   f   g   h");
-    }
-
-    //
-
     public void move(String moveString) throws Exception {
         for (short move : legalMoves) {
             if (getMoveString(move).equals(moveString)) {
@@ -414,6 +384,14 @@ public class Chess {
     }
 
     public void move(short move) throws Exception {
+        if (!legalMoves.contains(move)) {
+            throw new Exception("" + getMoveString(move) + " is not a legal move.");
+        }
+        moveNoUpdate(move);
+        getLegalMoves(legalMoves);
+    }
+
+    public void moveNoUpdate(short move) throws Exception {
         reversibleMoves.add(encodeReversibleMove(move));
         enPassantSquare = 0;
         switch (getFlag(move)) {
@@ -442,6 +420,11 @@ public class Chess {
     }
 
     public void undo() throws Exception {
+        undoNoUpdate();
+        getLegalMoves(legalMoves);
+    }
+
+    public void undoNoUpdate() throws Exception {
         if (reversibleMoves.size() == 0) {
             throw new Exception("No move to undo.");
         }
@@ -565,55 +548,51 @@ public class Chess {
         return;
     }
 
-    public void updateLegalMoves() throws Exception {
+    public Set<Short> getLegalMoves() throws Exception {
+        return getLegalMoves(new HashSet<Short>());
+    }
+
+    public Set<Short> getLegalMoves(Set<Short> output) throws Exception {
+        output.clear();
         if (gameOver) {
-            return;
+            return output;
         }
         if (Collections.frequency(hashList, hashList.get(hashList.size() - 1)) == 5) {
             gameOver = true; // 5 fold repetition
-            return;
+            return output;
         }
         if (halfMoveCount == 75) {
             gameOver = true;
-            return;
+            return output;
         }
-        legalMoves.clear();
-        updatePseudoLegalMoves(turn);
-        for (short move : pseudoLegalMoves[turn]) {
-            this.move(move);
-            updatePseudoLegalMoves(turn);
+        getPseudoLegalMoves(pseudoLegalMoves.get(turn));
+        for (short move : pseudoLegalMoves.get(turn)) {
+            this.moveNoUpdate(move);
+            getPseudoLegalMoves(pseudoLegalMoves.get(turn));
             if (!enemyInCheck()) {
-                legalMoves.add(move);
+                output.add(move);
             }
-            undo();
+            undoNoUpdate();
         }
         if (legalMoves.size() == 0) {
             gameOver = true;
         }
-        return;
+        return output;
     }
 
-    public void updatePseudoLegalMoves(int color) {
-        pseudoLegalMoves[color].clear();
-        addPseudoLegalPawnMoves(color);
-        addPseudoLegalKnightMoves(color);
-        addPseudoLegalBishopMoves(color);
-        addPseudoLegalRookMoves(color);
-        addPseudoLegalQueenMoves(color);
-        addPseudoLegalKingMoves(color);
-        addPseudoLegalCastleMoves(color);
-        return;
+    public Set<Short> getPseudoLegalMoves(Set<Short> moveSet) {
+        moveSet.clear();
+        addPseudoLegalPawnMoves(moveSet, pieceBoards[turn][PAWN]);
+        addPseudoLegalKnightMoves(moveSet, pieceBoards[turn][KNIGHT]);
+        addPseudoLegalBishopMoves(moveSet, pieceBoards[turn][BISHOP] | pieceBoards[turn][QUEEN]);
+        addPseudoLegalRookMoves(moveSet, pieceBoards[turn][ROOK] | pieceBoards[turn][QUEEN]);
+        addPseudoLegalKingMoves(moveSet, pieceBoards[turn][KING]);
+        addPseudoLegalCastleMoves(moveSet, pieceBoards[turn][KING]);
+        return moveSet;
     }
 
-    public boolean squareAttacked(long square) {
-        turn ^= 1;
-        boolean result = enemySquareAttacked(square);
-        turn ^= 1;
-        return result;
-    }
-
-    public boolean inCheck() {
-        return squareAttacked(pieceBoards[turn][KING]);
+    public Set<Short> getPseudoLegalMoves() {
+        return getPseudoLegalMoves(new HashSet<Short>());
     }
 
     public boolean enemyInCheck() {
@@ -650,7 +629,7 @@ public class Chess {
                 }
             }
         }
-        for (short move : pseudoLegalMoves[turn]) {
+        for (short move : pseudoLegalMoves.get(turn)) {
             if (getEndingSquare(move) == square) {
                 long startingSquare = getStartingSquare(move);
                 int attackingPiece = getPiece(startingSquare);
@@ -796,10 +775,6 @@ public class Chess {
 
     }
 
-    public int getGameLength() {
-        return reversibleMoves.size();
-    }
-
     public void makePromotionMove(short move) {
         long start = getStartingSquare(move);
         long end = getEndingSquare(move);
@@ -895,314 +870,345 @@ public class Chess {
         }
     }
 
-    public long perft(int depth, boolean verbose) throws Exception {
-        long nodes = 0;
-        updateLegalMoves();
-        List<Short> moves = new ArrayList<>(legalMoves);
-        for (short move : moves) {
-            move(move);
-            updateLegalMoves();
-            long divide = perft(depth - 1);
-            nodes += divide;
-            undo();
-            if (verbose) {
-                System.out.println("" + getMoveString(move) + ": " + divide);
-            }
+    private long perft(int depth) throws Exception {
+        Set<Short> moves = getLegalMoves();
+        if (depth == 1) {
+            return moves.size();
         }
-        System.out.println("Nodes searched: " + nodes);
+        long nodes = 0;
+        for (short move : moves) {
+            moveNoUpdate(move);
+            nodes += perft(depth - 1);
+            undoNoUpdate();
+        }
         return nodes;
     }
 
-    public long perft(int depth) throws Exception {
-        if (depth == 1) {
-            return legalMoves.size();
+    public long perft(int depth, boolean verbose) throws Exception {
+        Map<String, Long> map = perftMap(depth);
+        if (verbose) {
+            for (String key : map.keySet()) {
+                System.out.println(key + ": " + map.get(key));
+            }
         }
-        long nodes = 0;
-        List<Short> moves = new ArrayList<>(legalMoves);
-        for (short move : moves) {
-            move(move);
-            updateLegalMoves();
-            nodes += perft(depth - 1);
-            undo();
-        }
-        return nodes;
+        return map.get("total");
     }
 
     public Map<String, Long> perftMap(int depth) throws Exception {
         Map<String, Long> map = new TreeMap<>();
         long nodes = 0;
-        updateLegalMoves();
-        List<Short> moves = new ArrayList<>(legalMoves);
+        Set<Short> moves = getLegalMoves();
+        if (depth == 1) {
+            for (short move : moves) {
+                map.put(getMoveString(move), 1l);
+            }
+            map.put("total", (long) moves.size());
+            return map;
+        }
         for (short move : moves) {
-            move(move);
-            updateLegalMoves();
+            moveNoUpdate(move);
             long divide = perft(depth - 1);
             nodes += divide;
-            undo();
+            undoNoUpdate();
             map.put(getMoveString(move), divide);
         }
         map.put("total", nodes);
         return map;
     }
 
-    public void addPseudoLegalPawnMoves(int color) {
-        int offset = (color == BLACK) ? -1 : 1;
-        long startingPawns = pieceBoards[color][PAWN] & ((color == BLACK) ? RANK_7 : RANK_2); // all pawns on starting
-                                                                                              // square
-        long emptySquares = pieceBoards[WHITE][EMPTY];
+    public static long perft(String fen, int depth, boolean verbose, String... moves) throws Exception {
+        Map<String, Long> map = Chess.perftMap(fen, depth, moves);
+        if (verbose) {
+            for (String key : map.keySet()) {
+                System.out.println(key + ": " + map.get(key));
+            }
+        }
+        return map.get("total");
+    }
 
-        startingPawns = n(startingPawns, offset) & emptySquares; // advance the pawns one square
-        startingPawns = n(startingPawns, offset) & emptySquares; // advance the pawns one square
+    public static Map<String, Long> perftMap(String fen, int depth, String... moves) throws Exception {
+        Chess game = new Chess(fen);
+        game.move(moves);
+        return game.perftMap(depth);
+    }
+
+    public void move(String... moves) throws Exception {
+        for (String move : moves) {
+            move(move);
+        }
+    }
+
+    public void addPseudoLegalPawnMoves(Set<Short> moveSet, long startingPieces) {
+        final long emptySquares = pieceBoards[WHITE][EMPTY];
+        final long captureSquares = combinedBoards[turn ^ 1] | enPassantSquare;
+        final long backRank = getBackRank(turn ^ 1);
+        int offset = (turn == BLACK) ? -1 : 1;
+        long pawns = startingPieces;
+        pawns &= ((turn == BLACK) ? RANK_7 : RANK_2); // all pawns on starting square
+        pawns = n(pawns, offset) & emptySquares; // advance the pawns one square
+        pawns = n(pawns, offset) & emptySquares; // advance the pawns one square
         long endingSquare = 0l;
         long startingSquare = 0l;
         short move = 0;
         for (long file : FILES) { // this loop adds double move pawns
             for (long rank : RANKS) {
-                endingSquare = file & rank & startingPawns;
+                endingSquare = file & rank & pawns;
                 if (endingSquare == 0) {
                     continue;
                 }
                 startingSquare = s(endingSquare, 2 * offset);
                 move = encodeMove(startingSquare, endingSquare, 0, FLAG_STANDARD);
-                pseudoLegalMoves[color].add(move);
+                moveSet.add(move);
             }
         }
-        startingPawns = pieceBoards[color][PAWN];
-        emptySquares = pieceBoards[WHITE][EMPTY];
-        startingPawns = n(startingPawns, offset) & emptySquares;
+        pawns = startingPieces;
+        pawns = n(pawns, offset) & emptySquares;
         for (long file : FILES) { // this loop adds single move pawns
             for (long rank : RANKS) {
-                endingSquare = file & rank & startingPawns;
+                endingSquare = file & rank & pawns;
                 if (endingSquare == 0) {
                     continue;
                 }
                 startingSquare = s(endingSquare, offset);
-                if ((endingSquare & getBackRank(color ^ 1)) != 0) {
+                if ((endingSquare & backRank) != 0) {
                     for (int piece : PROMOTION_PIECES) {
                         move = encodeMove(startingSquare, endingSquare, piece, FLAG_PROMOTION);
-                        pseudoLegalMoves[color].add(move);
+                        moveSet.add(move);
                     }
                 } else {
                     move = encodeMove(startingSquare, endingSquare, 0, FLAG_STANDARD);
-                    pseudoLegalMoves[color].add(move);
+                    moveSet.add(move);
                 }
             }
         }
 
-        startingPawns = pieceBoards[color][PAWN];
-        emptySquares = pieceBoards[WHITE][EMPTY];
-        startingPawns = n(startingPawns, offset);
-        startingPawns = e(startingPawns, 1) & (combinedBoards[color ^ 1] | enPassantSquare);
+        pawns = startingPieces;
+        pawns = n(pawns, offset);
+        pawns = e(pawns, 1) & captureSquares;
         for (long file : FILES) { // this loop adds pawn captures towards the H-file
             for (long rank : RANKS) {
-                endingSquare = file & rank & startingPawns;
+                endingSquare = file & rank & pawns;
                 if (endingSquare == 0) {
                     continue;
                 }
                 startingSquare = s(endingSquare, offset);
                 startingSquare = w(startingSquare, 1);
-                if ((endingSquare & getBackRank(color ^ 1)) != 0) {
+                if ((endingSquare & backRank) != 0) {
                     for (int piece : PROMOTION_PIECES) {
                         move = encodeMove(startingSquare, endingSquare, piece, FLAG_PROMOTION);
-                        pseudoLegalMoves[color].add(move);
+                        moveSet.add(move);
                     }
                 } else if (endingSquare == enPassantSquare) {
                     move = encodeMove(startingSquare, endingSquare, 0, FLAG_EN_PASSANT);
-                    pseudoLegalMoves[color].add(move);
+                    moveSet.add(move);
                 } else {
                     move = encodeMove(startingSquare, endingSquare, 0, FLAG_STANDARD);
-                    pseudoLegalMoves[color].add(move);
+                    moveSet.add(move);
                 }
             }
         }
-
-        startingPawns = pieceBoards[color][PAWN];
-        emptySquares = pieceBoards[WHITE][EMPTY];
-        startingPawns = n(startingPawns, offset);
-        startingPawns = w(startingPawns, 1) & (combinedBoards[color ^ 1] | enPassantSquare);
-        for (long file : FILES) { // this loop adds pawn captures towards the A-file
+        pawns = startingPieces;
+        pawns = n(pawns, offset);
+        pawns = w(pawns, 1) & captureSquares;
+        for (long file : FILES) { // this loop adds pawn captures towards the H-file
             for (long rank : RANKS) {
-                endingSquare = file & rank & startingPawns;
+                endingSquare = file & rank & pawns;
                 if (endingSquare == 0) {
                     continue;
                 }
                 startingSquare = s(endingSquare, offset);
                 startingSquare = e(startingSquare, 1);
-                if ((endingSquare & getBackRank(color ^ 1)) != 0) {
+                if ((endingSquare & backRank) != 0) {
                     for (int piece : PROMOTION_PIECES) {
                         move = encodeMove(startingSquare, endingSquare, piece, FLAG_PROMOTION);
-                        pseudoLegalMoves[color].add(move);
+                        moveSet.add(move);
                     }
                 } else if (endingSquare == enPassantSquare) {
                     move = encodeMove(startingSquare, endingSquare, 0, FLAG_EN_PASSANT);
-                    pseudoLegalMoves[color].add(move);
+                    moveSet.add(move);
                 } else {
                     move = encodeMove(startingSquare, endingSquare, 0, FLAG_STANDARD);
-                    pseudoLegalMoves[color].add(move);
+                    moveSet.add(move);
                 }
             }
         }
         return;
     }
 
-    public void addPseudoLegalRookMoves(int color) {
-        long rooks = pieceBoards[color][ROOK];
-        long enemies = combinedBoards[color ^ 1];
-        long combined = combinedBoards[color] | enemies;
+    public void addPseudoLegalRookMoves(Set<Short> moveSet, long startingPieces) {
+        long rooks = startingPieces;
+        final long enemies = combinedBoards[turn ^ 1];
+        final long friends = combinedBoards[turn];
+        final long enemiesOrFriends = enemies | friends;
         for (long rank : RANKS) {
             for (long file : FILES) {
                 long startingSquare = rooks & file & rank;
                 if (startingSquare == 0) {
                     continue;
                 }
-                for (int offset : ROOK_OFFSETS) {
-                    long destinationSquare = compass(startingSquare, offset);
-                    while (destinationSquare != 0 && (destinationSquare & combined) == 0) {
-                        short move = encodeMove(startingSquare, destinationSquare, 0, FLAG_STANDARD);
-                        pseudoLegalMoves[color].add(move);
-                        destinationSquare = compass(destinationSquare, offset);
-                    }
-                    if ((destinationSquare & combinedBoards[color ^ 1]) != 0) {
-                        short move = encodeMove(startingSquare, destinationSquare, 0, FLAG_STANDARD);
-                        pseudoLegalMoves[color].add(move);
-                    }
+                long destinationSquare = n(startingSquare);
+                while (destinationSquare != 0 && (destinationSquare & enemiesOrFriends) == 0) {
+                    short move = encodeMove(startingSquare, destinationSquare, 0, FLAG_STANDARD);
+                    moveSet.add(move);
+                    destinationSquare = n(destinationSquare);
+                }
+                if ((destinationSquare & enemies) != 0) {
+                    short move = encodeMove(startingSquare, destinationSquare, 0, FLAG_STANDARD);
+                    moveSet.add(move);
+                }
+                destinationSquare = s(startingSquare);
+                while (destinationSquare != 0 && (destinationSquare & enemiesOrFriends) == 0) {
+                    short move = encodeMove(startingSquare, destinationSquare, 0, FLAG_STANDARD);
+                    moveSet.add(move);
+                    destinationSquare = s(destinationSquare);
+                }
+                if ((destinationSquare & enemies) != 0) {
+                    short move = encodeMove(startingSquare, destinationSquare, 0, FLAG_STANDARD);
+                    moveSet.add(move);
+                }
+                destinationSquare = e(startingSquare);
+                while (destinationSquare != 0 && (destinationSquare & enemiesOrFriends) == 0) {
+                    short move = encodeMove(startingSquare, destinationSquare, 0, FLAG_STANDARD);
+                    moveSet.add(move);
+                    destinationSquare = e(destinationSquare);
+                }
+                if ((destinationSquare & enemies) != 0) {
+                    short move = encodeMove(startingSquare, destinationSquare, 0, FLAG_STANDARD);
+                    moveSet.add(move);
+                }
+                destinationSquare = w(startingSquare);
+                while (destinationSquare != 0 && (destinationSquare & enemiesOrFriends) == 0) {
+                    short move = encodeMove(startingSquare, destinationSquare, 0, FLAG_STANDARD);
+                    moveSet.add(move);
+                    destinationSquare = w(destinationSquare);
+                }
+                if ((destinationSquare & enemies) != 0) {
+                    short move = encodeMove(startingSquare, destinationSquare, 0, FLAG_STANDARD);
+                    moveSet.add(move);
                 }
             }
         }
     }
 
-    public void addPseudoLegalBishopMoves(int color) {
-        long bishops = pieceBoards[color][BISHOP];
-        long enemies = combinedBoards[color ^ 1];
-        long combined = combinedBoards[color] | enemies;
+    public void addPseudoLegalBishopMoves(Set<Short> moveSet, long startingPieces) {
+        long bishops = startingPieces;
+        final long enemies = combinedBoards[turn ^ 1];
+        final long friends = combinedBoards[turn];
+        final long enemiesOrFriends = enemies | friends;
         for (long rank : RANKS) {
             for (long file : FILES) {
                 long startingSquare = bishops & file & rank;
                 if (startingSquare == 0) {
                     continue;
                 }
-                for (int offset : BISHOP_OFFSETS) {
-                    long destinationSquare = compass(startingSquare, offset);
-                    while (destinationSquare != 0 && (destinationSquare & combined) == 0) {
-                        short move = encodeMove(startingSquare, destinationSquare, 0, FLAG_STANDARD);
-                        pseudoLegalMoves[color].add(move);
-                        destinationSquare = compass(destinationSquare, offset);
-                    }
-                    if ((destinationSquare & combinedBoards[color ^ 1]) != 0) {
-                        short move = encodeMove(startingSquare, destinationSquare, 0, FLAG_STANDARD);
-                        pseudoLegalMoves[color].add(move);
-                    }
+                long destinationSquare = ne(startingSquare);
+                while (destinationSquare != 0 && (destinationSquare & enemiesOrFriends) == 0) {
+                    short move = encodeMove(startingSquare, destinationSquare, 0, FLAG_STANDARD);
+                    moveSet.add(move);
+                    destinationSquare = ne(destinationSquare);
+                }
+                if ((destinationSquare & enemies) != 0) {
+                    short move = encodeMove(startingSquare, destinationSquare, 0, FLAG_STANDARD);
+                    moveSet.add(move);
+                }
+                destinationSquare = se(startingSquare);
+                while (destinationSquare != 0 && (destinationSquare & enemiesOrFriends) == 0) {
+                    short move = encodeMove(startingSquare, destinationSquare, 0, FLAG_STANDARD);
+                    moveSet.add(move);
+                    destinationSquare = se(destinationSquare);
+                }
+                if ((destinationSquare & enemies) != 0) {
+                    short move = encodeMove(startingSquare, destinationSquare, 0, FLAG_STANDARD);
+                    moveSet.add(move);
+                }
+                destinationSquare = nw(startingSquare);
+                while (destinationSquare != 0 && (destinationSquare & enemiesOrFriends) == 0) {
+                    short move = encodeMove(startingSquare, destinationSquare, 0, FLAG_STANDARD);
+                    moveSet.add(move);
+                    destinationSquare = nw(destinationSquare);
+                }
+                if ((destinationSquare & enemies) != 0) {
+                    short move = encodeMove(startingSquare, destinationSquare, 0, FLAG_STANDARD);
+                    moveSet.add(move);
+                }
+                destinationSquare = sw(startingSquare);
+                while (destinationSquare != 0 && (destinationSquare & enemiesOrFriends) == 0) {
+                    short move = encodeMove(startingSquare, destinationSquare, 0, FLAG_STANDARD);
+                    moveSet.add(move);
+                    destinationSquare = sw(destinationSquare);
+                }
+                if ((destinationSquare & enemies) != 0) {
+                    short move = encodeMove(startingSquare, destinationSquare, 0, FLAG_STANDARD);
+                    moveSet.add(move);
                 }
             }
         }
     }
 
-    public void addPseudoLegalQueenMoves(int color) {
-        long queens = pieceBoards[color][QUEEN];
-        long enemies = combinedBoards[color ^ 1];
-        long combined = combinedBoards[color] | enemies;
-        for (long rank : RANKS) {
-            for (long file : FILES) {
-                long startingSquare = queens & file & rank;
-                if (startingSquare == 0) {
-                    continue;
-                }
-                for (int offset : BISHOP_OFFSETS) {
-                    long destinationSquare = compass(startingSquare, offset);
-                    while (destinationSquare != 0 && (destinationSquare & combined) == 0) {
-                        short move = encodeMove(startingSquare, destinationSquare, 0, FLAG_STANDARD);
-                        pseudoLegalMoves[color].add(move);
-                        destinationSquare = compass(destinationSquare, offset);
-                    }
-                    if ((destinationSquare & combinedBoards[color ^ 1]) != 0) {
-                        short move = encodeMove(startingSquare, destinationSquare, 0, FLAG_STANDARD);
-                        pseudoLegalMoves[color].add(move);
-                    }
-                }
-                for (int offset : ROOK_OFFSETS) {
-                    long destinationSquare = compass(startingSquare, offset);
-                    while (destinationSquare != 0 && (destinationSquare & combined) == 0) {
-                        short move = encodeMove(startingSquare, destinationSquare, 0, FLAG_STANDARD);
-                        pseudoLegalMoves[color].add(move);
-                        destinationSquare = compass(destinationSquare, offset);
-                    }
-                    if ((destinationSquare & combinedBoards[color ^ 1]) != 0) {
-                        short move = encodeMove(startingSquare, destinationSquare, 0, FLAG_STANDARD);
-                        pseudoLegalMoves[color].add(move);
-                    }
-                }
+    public static final long[] knightMoveSquares = { 0x00020400L, 0x00050800L, 0x000A1100L, 0x00142200L, 0x00284400L,
+            0x00508800L, 0x00A01000L, 0x00402000L, 0x02040004L, 0x05080008L, 0x0A110011L, 0x14220022L, 0x28440044L,
+            0x50880088L, 0xA0100010L, 0x40200020L, 0x204000402L, 0x508000805L, 0xA1100110AL, 0x1422002214L,
+            0x2844004428L, 0x5088008850L, 0xA0100010A0L, 0x4020002040L, 0x20400040200L, 0x50800080500L, 0xA1100110A00L,
+            0x142200221400L, 0x284400442800L, 0x508800885000L, 0xA0100010A000L, 0x402000204000L, 0x2040004020000L,
+            0x5080008050000L, 0xA1100110A0000L, 0x14220022140000L, 0x28440044280000L, 0x50880088500000L,
+            0xA0100010A00000L, 0x40200020400000L, 0x204000402000000L, 0x508000805000000L, 0xA1100110A000000L,
+            0x1422002214000000L, 0x2844004428000000L, 0x5088008850000000L, 0xA0100010A0000000L, 0x4020002040000000L,
+            0x400040200000000L, 0x800080500000000L, 0x1100110A00000000L, 0x2200221400000000L, 0x4400442800000000L,
+            0x8800885000000000L, 0x100010A000000000L, 0x2000204000000000L, 0x4020000000000L, 0x8050000000000L,
+            0x110A0000000000L, 0x22140000000000L, 0x44280000000000L, 0x88500000000000L, 0x10A00000000000L,
+            0x20400000000000L };
+
+    public void addPseudoLegalKnightMoves(Set<Short> moveSet, long startingPieces) {
+        for (byte start : serialize(startingPieces)) {
+            for (byte end : serialize(
+                    knightMoveSquares[start] & (combinedBoards[turn ^ 1] | pieceBoards[WHITE][EMPTY]))) {
+                moveSet.add(encodeMove(pushRight(1l, start), pushRight(1l, end), 0, FLAG_STANDARD));
             }
         }
     }
 
-    public void addPseudoLegalKnightMoves(int color) {
-        long knights = pieceBoards[color][KNIGHT];
-        long emptySquares = pieceBoards[WHITE][EMPTY];
-        long enemies = combinedBoards[color ^ 1];
-        long destinationSquares = 0;
-        for (int offset : KNIGHT_OFFSETS) {
-            destinationSquares |= compass(knights, offset) & (emptySquares | enemies);
+    public static final long[] kingMoveSquares = { 0x00000302L, 0x00000705L, 0x00000E0AL, 0x00001C14L, 0x00003828L,
+            0x00007050L,
+            0x0000E0A0L, 0x0000C040L, 0x00030203L, 0x00070507L, 0x000E0A0EL, 0x001C141CL, 0x00382838L, 0x00705070L,
+            0x00E0A0E0L, 0x00C040C0L, 0x03020300L, 0x07050700L, 0x0E0A0E00L, 0x1C141C00L, 0x38283800L, 0x70507000L,
+            0xE0A0E000L, 0xC040C000L, 0x302030000L, 0x705070000L, 0xE0A0E0000L, 0x1C141C0000L, 0x3828380000L,
+            0x7050700000L, 0xE0A0E00000L, 0xC040C00000L, 0x30203000000L, 0x70507000000L, 0xE0A0E000000L,
+            0x1C141C000000L, 0x382838000000L, 0x705070000000L, 0xE0A0E0000000L, 0xC040C0000000L, 0x3020300000000L,
+            0x7050700000000L, 0xE0A0E00000000L, 0x1C141C00000000L, 0x38283800000000L, 0x70507000000000L,
+            0xE0A0E000000000L, 0xC040C000000000L, 0x302030000000000L, 0x705070000000000L, 0xE0A0E0000000000L,
+            0x1C141C0000000000L, 0x3828380000000000L, 0x7050700000000000L, 0xE0A0E00000000000L, 0xC040C00000000000L,
+            0x203000000000000L, 0x507000000000000L, 0xA0E000000000000L, 0x141C000000000000L, 0x2838000000000000L,
+            0x5070000000000000L, 0xA0E0000000000000L, 0x40C0000000000000L };
+
+    public void addPseudoLegalKingMoves(Set<Short> moveSet, long startingPieces) {
+        for (byte end : serialize(
+                kingMoveSquares[getIndex(startingPieces)] & (combinedBoards[turn ^ 1] | pieceBoards[WHITE][EMPTY]))) {
+            moveSet.add(encodeMove(startingPieces, pushRight(1l, end), 0, FLAG_STANDARD));
         }
-        long endingSquare;
-        long startingSquare;
-        short move;
-        for (long file : FILES) {
-            for (long rank : RANKS) {
-                endingSquare = file & rank & destinationSquares;
-                if (endingSquare == 0) {
-                    continue;
-                }
-                for (int offset : KNIGHT_OFFSETS) {
-                    startingSquare = compass(endingSquare, offset) & knights;
-                    if (startingSquare != 0) {
-                        move = encodeMove(startingSquare, endingSquare, 0, FLAG_STANDARD);
-                        pseudoLegalMoves[color].add(move);
-                    }
-                }
-            }
-        }
-        return;
     }
 
-    public void addPseudoLegalKingMoves(int color) {
-        long kings = pieceBoards[color][KING];
-        long possibleSquares = combinedBoards[color ^ 1] | pieceBoards[WHITE][EMPTY];
-        for (int offset : ROOK_OFFSETS) {
-            long destinationSquare = compass(kings, offset) & possibleSquares;
-            if (destinationSquare != 0) {
-                short move = encodeMove(kings, destinationSquare, 0, FLAG_STANDARD);
-                pseudoLegalMoves[color].add(move);
-            }
+    public List<Byte> serialize(long board) {
+        List<Byte> output = new ArrayList<>();
+        byte index = 0;
+        while (board != 0) {
+            index = (byte) getIndex(board);
+            board = board & (~pushRight(1l, index));
+            output.add(index);
         }
-        for (int offset : BISHOP_OFFSETS) {
-            long destinationSquare = compass(kings, offset) & possibleSquares;
-            if (destinationSquare != 0) {
-                short move = encodeMove(kings, destinationSquare, 0, FLAG_STANDARD);
-                pseudoLegalMoves[color].add(move);
-            }
-        }
-        return;
+        return output;
     }
 
-    public void addPseudoLegalCastleMoves(int color) {
-        long kings = pieceBoards[color][KING];
-        long gap = 0;
-        long combined = combinedBoards[color] | combinedBoards[color ^ 1];
-        if (castleRights[color][KINGSIDE]) {
-            gap = (e(kings) | e(e(kings))) & combined; // space from king to rook empty
-            if (gap == 0) {
-                long destinationSquare = e(e(e(kings)));
-                short move = encodeMove(kings, destinationSquare, 0, FLAG_CASTLE);
-                pseudoLegalMoves[color].add(move);
-            }
+    public boolean isEmpty(long squares) {
+        return (squares & (combinedBoards[WHITE] | combinedBoards[BLACK])) == 0;
+    }
+
+    public void addPseudoLegalCastleMoves(Set<Short> moveSet, long startingPieces) {
+        if (castleRights[turn][KINGSIDE] & (isEmpty(e(startingPieces) | e(e(startingPieces))))) {
+            moveSet.add(encodeMove(startingPieces, e(e(e(startingPieces))), QUEEN, FLAG_CASTLE));
         }
-        if (castleRights[color][QUEENSIDE]) {
-            gap = (w(kings) | w(w(kings)) | w(w(w(kings)))) & combined; // space from king to rook empty
-            if (gap == 0) {
-                long destinationSquare = w(w(w(w(kings))));
-                short move = encodeMove(kings, destinationSquare, 0, FLAG_CASTLE);
-                pseudoLegalMoves[color].add(move);
-            }
+        if (castleRights[turn][QUEENSIDE]
+                & (isEmpty(w(startingPieces) | w(w(startingPieces)) | w(w(w(startingPieces)))))) {
+            moveSet.add(encodeMove(startingPieces, w(w(w(w(startingPieces)))), QUEEN, FLAG_CASTLE));
         }
     }
 
@@ -1220,10 +1226,6 @@ public class Chess {
         int endColor = getColor(end);
         add(start, endColor, endPiece);
         add(end, startColor, startPiece);
-    }
-
-    public void swap(String start, String end) {
-        swap(create(start), create(end));
     }
 
     public void replace(long square, int color, int piece) {
@@ -1347,62 +1349,6 @@ public class Chess {
         return build.toString();
     }
 
-    public String getShortenedFen() {
-        StringBuilder build = new StringBuilder("");
-        int count = 0;
-        for (long rank : RANKS_REVERSED) {
-            for (long file : FILES) {
-                int piece = getPiece(rank & file);
-                int color = getColor(rank & file);
-                if (piece == EMPTY) {
-                    count++;
-                    if (count == FILES.length) {
-                        build.append(count);
-                        count = 0;
-                    }
-                    continue;
-                }
-                if (count > 0) {
-                    build.append(count);
-                    count = 0;
-                }
-                build.append(PIECE_CHARS_ASCII[color][piece]);
-            }
-            build.append("/");
-        }
-        build.setLength(build.length() - 1);
-        build.append(" ");
-        if (turn == WHITE) {
-            build.append("w ");
-        } else {
-            build.append("b ");
-        }
-        boolean anyCastle = false;
-        for (int color : COLORS) {
-            for (int side : SIDES_REVERSED) {
-                if (castleRights[color][side]) {
-                    anyCastle = true;
-                    char temp = side == KINGSIDE ? 'k' : 'q';
-                    if (color == WHITE) {
-                        temp = Character.toUpperCase(temp);
-                    }
-                    build.append(temp);
-                }
-            }
-        }
-        if (!anyCastle) {
-            build.append("-");
-        }
-        build.append(" ");
-        if (enPassantSquare == 0l) {
-            build.append("-");
-        } else {
-            build.append((char) (getFileIndex(enPassantSquare) + 'a'));
-            build.append((char) (getRankIndex(enPassantSquare) + '1'));
-        }
-        return build.toString();
-    }
-
     public void setFromFen(String fen) throws Exception {
         fen = fen.trim();
         int fileIndex = 0;
@@ -1482,7 +1428,7 @@ public class Chess {
         hashList.clear();
         setHash();
         hashList.add(new String(hash));
-        updateLegalMoves();
+        getLegalMoves(legalMoves);
         if (isValidBoardState()) {
             return;
         } else {
@@ -1567,6 +1513,10 @@ public class Chess {
         return false;
     }
 
+    public static int getIndex(long square) {
+        return Long.numberOfTrailingZeros(square);
+    }
+
     public static int getRankIndex(long square) {
         int zeroes = Long.numberOfTrailingZeros(square);
         return (zeroes / 8);
@@ -1590,79 +1540,8 @@ public class Chess {
 
     }
 
-    public static long compass(long input, int offset) {
-        int east = (int) (3 & pushLeft(offset, 2));
-        int north = (3 & offset);
-        if ((offset & pushRight(1l, 8)) != 0) {
-            east = -east;
-        }
-        if ((offset & pushRight(1l, 7)) != 0) {
-            north = -north;
-        }
-        long result = input;
-        if (east > 0) {
-            for (int i = 0; i < east; i++) {
-                result = e(result);
-            }
-        } else {
-            for (int i = 0; i < -east; i++) {
-                result = w(result);
-            }
-        }
-        if (north > 0) {
-            for (int i = 0; i < north; i++) {
-                result = n(result);
-            }
-        } else {
-            for (int i = 0; i < -north; i++) {
-                result = s(result);
-            }
-        }
-        return result;
-    }
-
-    public static long compass(long input, int east, int north) {
-        int offset = encodeDirection(east, north);
-        return compass(input, offset);
-    }
-
-    public static int encodeDirection(int east, int north) {
-        int output = 0;
-        if (east < 0) {
-            output |= pushRight(1l, 8);
-            east = -east;
-        }
-        if (north < 0) {
-            output |= pushRight(1l, 7);
-            north = -north;
-        }
-        output |= pushRight(3 & east, 2);
-        output |= (3 & north);
-        return output;
-    }
-
     public static long n(long input) {
         return (input & ~RANK_8) << 8;
-    }
-
-    public static long n(long input, int count) {
-        int offset = encodeDirection(0, count);
-        return compass(input, offset);
-    }
-
-    public static long s(long input, int count) {
-        int offset = encodeDirection(0, -count);
-        return compass(input, offset);
-    }
-
-    public static long e(long input, int count) {
-        int offset = encodeDirection(count, 0);
-        return compass(input, offset);
-    }
-
-    public static long w(long input, int count) {
-        int offset = encodeDirection(-count, 0);
-        return compass(input, offset);
     }
 
     public static long s(long input) {
@@ -1675,6 +1554,41 @@ public class Chess {
 
     public static long w(long input) {
         return (input & ~A_FILE) >>> 1;
+    }
+
+    public static final long[] horizontalMoves = { 0xFFFFFFFFFFFFFFFFL, 0xFFFFFFFFFFFFFFL, 0xFFFFFFFFFFFFL,
+            0xFFFFFFFFFFL, 0xFFFFFFFFL, 0x00FFFFFFL, 0x0000FFFFL, 0x000000FFL, 0x00000000L };
+
+    public static long n(long input, int count) {
+        if (count < 0) {
+            return s(input, -count);
+        }
+        return (input & horizontalMoves[count]) << (8 * count);
+    }
+
+    public static long s(long input, int count) {
+        if (count < 0) {
+            return n(input, -count);
+        }
+        return (input & ~horizontalMoves[8 - count]) >>> (8 * count);
+    }
+
+    public static final long[] verticalMoves = { 0xFFFFFFFFFFFFFFFFL, 0xFEFEFEFEFEFEFEFEL, 0xFCFCFCFCFCFCFCFCL,
+            0xF8F8F8F8F8F8F8F8L, 0xF0F0F0F0F0F0F0F0L, 0xE0E0E0E0E0E0E0E0L, 0xC0C0C0C0C0C0C0C0L, 0x8080808080808080L,
+            0x00000000L };
+
+    public static long e(long input, int count) {
+        if (count < 0) {
+            return w(input, -count);
+        }
+        return (input & ~verticalMoves[8 - count]) << count;
+    }
+
+    public static long w(long input, int count) {
+        if (count < 0) {
+            return e(input, -count);
+        }
+        return (input & verticalMoves[count]) >>> count;
     }
 
     public static long ne(long input) {
@@ -1753,35 +1667,11 @@ public class Chess {
         return pushLeft(input, 8 * shift);
     }
 
-    public static long push(long input, int rightShift, int upShift) {
-        input = pushRight(input, rightShift);
-        input = pushUp(input, upShift);
-        return input;
-    }
-
     public static long create(int x, int y) {
         return FILES[x] & RANKS[y];
     }
 
     public static long create(String square) {
         return FILES[square.charAt(0) - 'a'] & RANKS[square.charAt(1) - '1'];
-    }
-
-    public static long get(long input, int x, int y) {
-        input = pushLeft(input, x);
-        input = pushDown(input, y);
-        return 1l & input;
-    }
-
-    public static long set(long input, int x, int y) {
-        return input | create(x, y);
-    }
-
-    public static long unset(long input, int x, int y) {
-        return input & (~create(x, y));
-    }
-
-    public static long toggle(long input, int x, int y) {
-        return (get(input, x, y) == 1l) ? unset(input, x, y) : set(input, x, y);
     }
 }
