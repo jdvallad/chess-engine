@@ -40,7 +40,7 @@ public class Chess {
     public static final byte FLAG_PROMOTION = 3;
     public static final int[] PROMOTION_PIECES = { QUEEN, KNIGHT, BISHOP, ROOK };
     public static final byte[] FLAGS = new byte[] { FLAG_STANDARD, FLAG_CASTLE, FLAG_EN_PASSANT, FLAG_PROMOTION };
-    public static final int[] PIECES = new int[] { QUEEN, KNIGHT, BISHOP, ROOK, KING, PAWN, EMPTY };
+    public static final int[] PIECES = new int[] { QUEEN, KNIGHT, BISHOP, ROOK, KING, PAWN };
     public static final long[] FILES = new long[] { A_FILE, B_FILE, C_FILE, D_FILE, E_FILE, F_FILE, G_FILE, H_FILE };
     public static final long[] FILES_REVERSED = new long[] { H_FILE, G_FILE, F_FILE, E_FILE, D_FILE, C_FILE, B_FILE,
             A_FILE };
@@ -48,7 +48,7 @@ public class Chess {
     public static final long[] RANKS_REVERSED = new long[] { RANK_8, RANK_7, RANK_6, RANK_5, RANK_4, RANK_3, RANK_2,
             RANK_1 };
     public static final char[][] PIECE_CHARS_UNICODE = new char[][] { { '♛', '♞', '♝', '♜', '♚', '♟', ' ' },
-            { '♕', '♘', '♗', '♖', '♔', '♙', '⚠' } }; // All empty squares will be white, ⚠ should never print
+            { '♕', '♘', '♗', '♖', '♔', '♙', ' ' } }; // All empty squares will be white, ⚠ should never print
     public static final char[][] PIECE_CHARS_ASCII = new char[][] { { 'Q', 'N', 'B', 'R', 'K', 'P', ' ' },
             { 'q', 'n', 'b', 'r', 'k', 'p', ' ' } }; // All empty squares will be white, ⚠ should never print
     public static final int[] COLORS = new int[] { WHITE, BLACK };
@@ -56,14 +56,13 @@ public class Chess {
     public static final int[] SIDES = new int[] { QUEENSIDE, KINGSIDE };
     public static final int[] SIDES_REVERSED = new int[] { KINGSIDE, QUEENSIDE };
     public static final long[][] DEFAULT_PIECEBOARDS = new long[][] {
-            { 8l, 66l, 36l, 129l, 16l, 65280l, 281474976645120l },
+            { 8l, 66l, 36l, 129l, 16l, 65280l },
             { 576460752303423488l, 4755801206503243776l, 2594073385365405696l,
                     -9151314442816847872l, 1152921504606846976l,
-                    71776119061217280l, 0l }
+                    71776119061217280l }
     };
     public static final long[] ROOK_STARTING_FILES = new long[] { A_FILE, H_FILE };
-    public static final int MAX_GAME_LENGTH = 8191;
-    public static final int MAX_NUM_MOVES = 511;
+
     public static final int HASH_SIZE = 71;
     // Object instance variables
     int turn;
@@ -104,9 +103,7 @@ public class Chess {
             pseudoLegalMoves.add(new HashSet<>());
             for (int piece : PIECES) {
                 pieceBoards[color][piece] = DEFAULT_PIECEBOARDS[color][piece];
-                if (piece != EMPTY) {
-                    combinedBoards[color] |= pieceBoards[color][piece];
-                }
+                combinedBoards[color] |= pieceBoards[color][piece];
             }
             for (int side : SIDES) {
                 castleRights[color][side] = true;
@@ -158,7 +155,7 @@ public class Chess {
                 hash[getFlatIndex(end)] = PIECE_CHARS_ASCII[startColor][promotion];
                 break;
             case FLAG_EN_PASSANT:
-                long captureSquare = Chess.pushDown(end, end - start > 0 ? 1 : -1);
+                long captureSquare = Chess.s(end, end - start > 0 ? 1 : -1);
                 hash[getFlatIndex(start)] = ' ';
                 hash[getFlatIndex(end)] = PIECE_CHARS_ASCII[turn][PAWN];
                 hash[getFlatIndex(captureSquare)] = ' ';
@@ -443,76 +440,76 @@ public class Chess {
         long push = 0;
         for (int color : COLORS_REVERSED) {
             for (int side : SIDES_REVERSED) {
-                push = pushRight(1l, 1 - 1);
+                push = 1l;
                 while (push != 0) {
                     castleRights[color][side] = (push & input) != 0;
-                    push = pushLeft(push, 1);
+                    push = push >>> 1;
                 }
-                input = pushLeft(input, 1);
+                input = input >>> 1;
             }
         }
-        push = pushRight(1l, 32 - 1);
+        push = 1l << 31;
         while (push != 0) {
             halfMoveCount |= push & input;
-            push = pushLeft(push, 1);
+            push = push >>> 1;
         }
-        input = pushLeft(input, 32);
+        input = input >>> 32;
 
-        push = pushRight(1l, 2 - 1);
+        push = 1l << 1;
         while (push != 0) {
             flag |= push & input;
-            push = pushLeft(push, 1);
+            push = push >>> 1;
         }
-        input = pushLeft(input, 2);
+        input = input >>> 2;
 
-        push = pushRight(1l, 6 - 1);
+        push = 1l << 5;
         while (push != 0) {
             enPassantSquareOffset |= push & input;
-            push = pushLeft(push, 1);
+            push = push >>> 1;
         }
         if (enPassantSquareOffset != 0) { // EnPassantOffset gets encoded as 0 if their is not enpassant square
-            enPassantSquare = pushRight(1l, enPassantSquareOffset);
+            enPassantSquare = 1L << enPassantSquareOffset;
         } else {
             enPassantSquare = 0;
         }
-        input = pushLeft(input, 6);
+        input = input >>> 6;
 
-        push = pushRight(1l, 1 - 1);
+        push = 1l;
         while (push != 0) {
             endingColor |= push & input;
-            push = pushLeft(push, 1);
+            push = push >>> 1;
         }
-        input = pushLeft(input, 1);
+        input = input >>> 1;
 
-        push = pushRight(1l, 3 - 1);
+        push = 1l << 2;
         while (push != 0) {
             endingPiece |= push & input;
-            push = pushLeft(push, 1);
+            push = push >>> 1;
         }
-        input = pushLeft(input, 3);
+        input = input >>> 3;
 
-        push = pushRight(1l, 6 - 1);
+        push = 1l << 5;
         while (push != 0) {
             endingSquareOffset |= push & input;
-            push = pushLeft(push, 1);
+            push = push >>> 1;
         }
-        endingSquare = pushRight(1l, endingSquareOffset);
-        input = pushLeft(input, 6);
+        endingSquare = 1l << endingSquareOffset;
+        input = input >>> 6;
 
-        push = pushRight(1l, 3 - 1);
+        push = 1l << 2;
         while (push != 0) {
             startingPiece |= push & input;
-            push = pushLeft(push, 1);
+            push = push >>> 1;
         }
-        input = pushLeft(input, 3);
+        input = input >>> 3;
 
-        push = pushRight(1l, 6 - 1);
+        push = 1l << 5;
         while (push != 0) {
             startingSquareOffset |= push & input;
-            push = pushLeft(push, 1);
+            push = push >>> 1;
         }
-        startingSquare = pushRight(1l, startingSquareOffset);
-        input = pushLeft(input, 6);
+        startingSquare = 1l << startingSquareOffset;
+        input = input >>> 6;
         int startingColor = turn ^ 1;
         switch (flag) {
             case FLAG_CASTLE:
@@ -599,19 +596,23 @@ public class Chess {
         return enemySquareAttacked(pieceBoards[turn ^ 1][KING]);
     }
 
+    public long getEmpty() {
+        return ~(combinedBoards[WHITE] | combinedBoards[BLACK]);
+    }
+
     public boolean enemySquareAttacked(long square) { // Returns true if one of your pieces is attacking a square
         // In the case of pawns, only considers diagonal attacks.
         // also if a king just castled and a square it castled through is attacked,
         // including starting square, and
         // square = where the king is now, this will return true
         if (((e(n(pieceBoards[turn][PAWN], (turn == BLACK) ? -1 : 1))
-                | w(n(pieceBoards[turn][PAWN], (turn == BLACK) ? -1 : 1))) & pieceBoards[WHITE][EMPTY] & square) != 0) {
+                | w(n(pieceBoards[turn][PAWN], (turn == BLACK) ? -1 : 1))) & getEmpty() & square) != 0) {
             return true;
         }
         long enemyKing = pieceBoards[turn ^ 1][KING];
         if (square == enemyKing) {
             if (reversibleMoves.size() > 0
-                    && (pushLeft(reversibleMoves.get(reversibleMoves.size() - 1), 36) & 3) == FLAG_CASTLE) {
+                    && ((reversibleMoves.get(reversibleMoves.size() - 1) >>> 36) & 3) == FLAG_CASTLE) {
                 if ((pieceBoards[turn ^ 1][KING] & G_FILE) != 0) {
                     if (enemySquareAttacked(w(enemyKing))) {
                         return true;
@@ -668,69 +669,69 @@ public class Chess {
             endingColor = getColor(captureSquare);
         }
         long output = 0;
-        long push = pushRight(1l, 6 - 1);
+        long push = 1l << 5;
         while (push != 0) {
             output |= push & startingSquareInt;
-            push = pushLeft(push, 1);
+            push = (push >>> 1);
         }
 
-        output = pushRight(output, 3);
-        push = pushRight(1l, 3 - 1);
+        output = output << 3;
+        push = 1l << 2;
         while (push != 0) {
             output |= push & startingPiece;
-            push = pushLeft(push, 1);
+            push = (push >>> 1);
         }
 
-        output = pushRight(output, 6);
-        push = pushRight(1l, 6 - 1);
+        output = output << 6;
+        push = 1l << 6 - 1;
         while (push != 0) {
             output |= push & endingSquareInt;
-            push = pushLeft(push, 1);
+            push = (push >>> 1);
         }
 
-        output = pushRight(output, 3);
-        push = pushRight(1l, 3 - 1);
+        output = output << 3;
+        push = 1l << 2;
         while (push != 0) {
             output |= push & endingPiece;
-            push = pushLeft(push, 1);
+            push = (push >>> 1);
         }
 
-        output = pushRight(output, 1);
-        push = pushRight(1l, 1 - 1);
+        output = output << 1;
+        push = 1l;
         while (push != 0) {
             output |= push & endingColor;
-            push = pushLeft(push, 1);
+            push = (push >>> 1);
         }
 
-        output = pushRight(output, 6);
-        push = pushRight(1l, 6 - 1);
+        output = output << 6;
+        push = 1l << 5;
         while (push != 0) {
             output |= push & enPassantSquareOffset; // if enPassantSquare is 0, then enPassantSquareOffset gets encoded
                                                     // as 64, but only 5 bits, so get set as 0 in encodedMove
-            push = pushLeft(push, 1);
+            push = (push >>> 1);
         }
 
-        output = pushRight(output, 2);
-        push = pushRight(1l, 2 - 1);
+        output = output << 2;
+        push = 1l << 1;
         while (push != 0) {
             output |= push & flag;
-            push = pushLeft(push, 1);
+            push = (push >>> 1);
         }
 
-        output = pushRight(output, 32);
-        push = pushRight(1l, 32 - 1);
+        output = output << 32;
+        push = 1l << 31;
         while (push != 0) {
             output |= push & halfMoveCount;
-            push = pushLeft(push, 1);
+            push = (push >>> 1);
         }
 
         for (int color : COLORS) {
             for (int side : SIDES) {
-                output = pushRight(output, 1);
-                push = pushRight(1l, 1 - 1);
+                output = output << 1;
+                push = 1l;
                 while (push != 0) {
                     output |= push & (castleRights[color][side] ? 1l : 0l);
-                    push = pushLeft(push, 1);
+                    push = (push >>> 1);
                 }
             }
         }
@@ -745,20 +746,20 @@ public class Chess {
         long startingSquare = 0l;
         long push = 0;
 
-        input = pushLeft(input, 48);
-        push = pushRight(1l, 6 - 1);
+        input = (input >>> 48);
+        push = 1l << 5;
         while (push != 0) {
             endingSquareOffset |= push & input;
-            push = pushLeft(push, 1);
+            push = (push >>> 1);
         }
-        endingSquare = pushRight(1l, endingSquareOffset);
-        input = pushLeft(input, 10);
-        push = pushRight(1l, 6 - 1);
+        endingSquare = 1L << endingSquareOffset;
+        input = (input >>> 10);
+        push = 1l << 5;
         while (push != 0) {
             startingSquareOffset |= push & input;
-            push = pushLeft(push, 1);
+            push = (push >>> 1);
         }
-        startingSquare = pushRight(1l, startingSquareOffset);
+        startingSquare = 1l << startingSquareOffset;
         char startingFile = (char) ('a' + getFileIndex(startingSquare));
         char startingRank = (char) ('1' + getRankIndex(startingSquare));
         char endingFile = (char) ('a' + getFileIndex(endingSquare));
@@ -830,7 +831,7 @@ public class Chess {
     public void makeEnPassantMove(short move) {
         long start = getStartingSquare(move);
         long end = getEndingSquare(move);
-        long captureSquare = Chess.pushDown(end, end - start > 0 ? 1 : -1);
+        long captureSquare = Chess.s(end, end - start > 0 ? 1 : -1);
         remove(captureSquare);
         move(start, end);
         halfMoveCount = -1;
@@ -851,7 +852,7 @@ public class Chess {
         if (startPiece == PAWN) { // update enPassantSquare
             int rankDifference = getRankIndex(end) - getRankIndex(start);
             if (Math.abs(rankDifference) == 2) {
-                enPassantSquare = pushUp(start, rankDifference / 2);
+                enPassantSquare = n(start, rankDifference / 2);
             }
         }
         for (int side : SIDES) { // update castling rights
@@ -939,7 +940,7 @@ public class Chess {
     }
 
     public void addPseudoLegalPawnMoves(Set<Short> moveSet, long startingPieces) {
-        final long emptySquares = pieceBoards[WHITE][EMPTY];
+        final long emptySquares = getEmpty();
         final long captureSquares = combinedBoards[turn ^ 1] | enPassantSquare;
         final long backRank = getBackRank(turn ^ 1);
         int offset = (turn == BLACK) ? -1 : 1;
@@ -1161,8 +1162,8 @@ public class Chess {
     public void addPseudoLegalKnightMoves(Set<Short> moveSet, long startingPieces) {
         for (byte start : serialize(startingPieces)) {
             for (byte end : serialize(
-                    knightMoveSquares[start] & (combinedBoards[turn ^ 1] | pieceBoards[WHITE][EMPTY]))) {
-                moveSet.add(encodeMove(pushRight(1l, start), pushRight(1l, end), 0, FLAG_STANDARD));
+                    knightMoveSquares[start] & (combinedBoards[turn ^ 1] | getEmpty()))) {
+                moveSet.add(encodeMove(1l << start, 1l << end, 0, FLAG_STANDARD));
             }
         }
     }
@@ -1182,8 +1183,8 @@ public class Chess {
 
     public void addPseudoLegalKingMoves(Set<Short> moveSet, long startingPieces) {
         for (byte end : serialize(
-                kingMoveSquares[getIndex(startingPieces)] & (combinedBoards[turn ^ 1] | pieceBoards[WHITE][EMPTY]))) {
-            moveSet.add(encodeMove(startingPieces, pushRight(1l, end), 0, FLAG_STANDARD));
+                kingMoveSquares[getIndex(startingPieces)] & (combinedBoards[turn ^ 1] | getEmpty()))) {
+            moveSet.add(encodeMove(startingPieces, 1l << end, 0, FLAG_STANDARD));
         }
     }
 
@@ -1192,7 +1193,7 @@ public class Chess {
         byte index = 0;
         while (board != 0) {
             index = (byte) getIndex(board);
-            board = board & (~pushRight(1l, index));
+            board = board & (~(1l << index));
             output.add(index);
         }
         return output;
@@ -1236,7 +1237,7 @@ public class Chess {
         remove(square);
         if (piece != EMPTY) {
             combinedBoards[color] |= square; // add piece to combinedBoard
-            pieceBoards[WHITE][EMPTY] &= ~square; // remove whitespace
+
             pieceBoards[color][piece] |= square; // add piece to board
         }
     }
@@ -1246,7 +1247,7 @@ public class Chess {
         int priorColor = getColor(square);
         if (priorPiece != EMPTY) {
             combinedBoards[priorColor] &= ~square; // remove prior piece from combinedBoard if its not EMPTY
-            pieceBoards[WHITE][EMPTY] |= square; // add empty square at this location
+
             pieceBoards[priorColor][priorPiece] &= ~square; // remove prior piece from board
         }
     }
@@ -1258,7 +1259,7 @@ public class Chess {
                 return piece;
             }
         }
-        return -1; // This shouldn't occur
+        return EMPTY;
     }
 
     public int getColor(long square) {
@@ -1639,39 +1640,4 @@ public class Chess {
         return s(w(w(input)));
     }
 
-    public static long pushLeft(long input, int shift) {
-        if (shift > 63) {
-            return 0l;
-        }
-        if (shift < 0) {
-            return pushRight(input, -shift);
-        }
-        return (input >>> shift);
-    }
-
-    public static long pushRight(long input, int shift) {
-        if (shift > 63) {
-            return 0l;
-        }
-        if (shift < 0) {
-            return pushLeft(input, -shift);
-        }
-        return (input << shift);
-    }
-
-    public static long pushUp(long input, int shift) {
-        return pushRight(input, 8 * shift);
-    }
-
-    public static long pushDown(long input, int shift) {
-        return pushLeft(input, 8 * shift);
-    }
-
-    public static long create(int x, int y) {
-        return FILES[x] & RANKS[y];
-    }
-
-    public static long create(String square) {
-        return FILES[square.charAt(0) - 'a'] & RANKS[square.charAt(1) - '1'];
-    }
 }
