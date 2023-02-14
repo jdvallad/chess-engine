@@ -248,7 +248,7 @@ public class Chess {
     public void makeEnPassantMove(short move) {
         long start = getStartingSquare(move);
         long end = getEndingSquare(move);
-        long captureSquare = Chess.s(end, end - start > 0 ? 1 : -1);
+        long captureSquare = Chess.compass(end, end - start > 0 ? SOUTH : NORTH, 0);
         remove(captureSquare);
         move(start, end);
         halfMoveCount = -1;
@@ -269,7 +269,7 @@ public class Chess {
         if (startPiece == PAWN) { // update enPassantSquare
             int rankDifference = getRankIndex(end) - getRankIndex(start);
             if (Math.abs(rankDifference) == 2) {
-                enPassantSquare = n(start, rankDifference / 2);
+                enPassantSquare = compass(start, rankDifference / 2, 0);
             }
         }
         for (int side : SIDES) { // update castling rights
@@ -451,7 +451,7 @@ public class Chess {
 
     public Set<Short> getPseudoLegalMoves(Set<Short> moveSet) {
         moveSet.clear();
-        addPseudoLegalPawnMoves(moveSet, pieceBoards[turn][PAWN]);
+        addPseudoLegalPawnMoves(moveSet);
         addPseudoLegalKnightMoves(moveSet, pieceBoards[turn][KNIGHT]);
         addPseudoLegalBishopMoves(moveSet, pieceBoards[turn][BISHOP] | pieceBoards[turn][QUEEN]);
         addPseudoLegalRookMoves(moveSet, pieceBoards[turn][ROOK] | pieceBoards[turn][QUEEN]);
@@ -462,6 +462,13 @@ public class Chess {
 
     public Set<Short> getPseudoLegalMoves() {
         return getPseudoLegalMoves(new HashSet<Short>());
+    }
+
+    public void addPseudoLegalPawnMoves(Set<Short> moveSet) {
+        addPseudoLegalPawnDoublePushes(moveSet);
+        addPseudoLegalPawnSinglePushes(moveSet);
+        addPseudoLegalPawnCapturesWest(moveSet);
+        addPseudoLegalPawnCapturesEast(moveSet);
     }
 
     public void addPseudoLegalPawnDoublePushes(Set<Short> moveSet) {
@@ -480,7 +487,7 @@ public class Chess {
         }
     }
 
-    public void addPseudoLegalPawnSinglePushes(Set<Short> moveSet, long startingPieces) {
+    public void addPseudoLegalPawnSinglePushes(Set<Short> moveSet) {
         final long emptySquares = getEmpty();
         int forward = (turn == BLACK) ? SOUTH : NORTH;
         long promotionSquares = ((turn == BLACK) ? RANK_1 : RANK_8);
@@ -490,20 +497,21 @@ public class Chess {
         for (int endingOffset : serializeBitboard(doublePawns)) {
             long endingSquare = getBitboard(endingOffset);
             long startingSquare = compass(endingSquare, -forward, 0);
-            if (isEmpty(promotionSquares & endingSquare)) {
-                move = encodeMove(startingSquare, endingSquare, 0, FLAG_STANDARD);
-                moveSet.add(move);
-            } else {
+            if ((promotionSquares & endingSquare) != 0) {
                 for (int piece : PROMOTION_PIECES) {
                     move = encodeMove(startingSquare, endingSquare, piece, FLAG_PROMOTION);
+                    moveSet.add(move);
                 }
+            } else {
+                move = encodeMove(startingSquare, endingSquare, 0, FLAG_STANDARD);
+                moveSet.add(move);
             }
         }
     }
 
-    public void addPseudoLegalPawnCapturesWest(Set<Short> moveSet, long startingPieces) {
+    public void addPseudoLegalPawnCapturesWest(Set<Short> moveSet) {
         // DON'T FORGET PROMOTION AND EN PASSANT!!!
-        final long captureSquares = combinedBoards[turn ^ 1];
+        final long captureSquares = combinedBoards[turn ^ 1] | enPassantSquare;
         int forward = (turn == BLACK) ? SOUTH : NORTH;
         long promotionSquares = ((turn == BLACK) ? RANK_1 : RANK_8);
         long doublePawns = pieceBoards[turn][PAWN]; // all friendly pawns
@@ -511,53 +519,44 @@ public class Chess {
         short move = 0;
         for (int endingOffset : serializeBitboard(doublePawns)) {
             long endingSquare = getBitboard(endingOffset);
-            long startingSquare = compass(endingSquare, -forward, 0);
-            if (isEmpty(promotionSquares & endingSquare)) {
-                move = encodeMove(startingSquare, endingSquare, 0, FLAG_STANDARD);
-                moveSet.add(move);
-            } else {
+            long startingSquare = compass(endingSquare, -forward, EAST);
+            if ((promotionSquares & endingSquare) != 0) {
                 for (int piece : PROMOTION_PIECES) {
                     move = encodeMove(startingSquare, endingSquare, piece, FLAG_PROMOTION);
+                    moveSet.add(move);
                 }
+            } else if (endingSquare == enPassantSquare) {
+                move = encodeMove(startingSquare, endingSquare, 0, FLAG_EN_PASSANT);
+                moveSet.add(move);
+            } else {
+                move = encodeMove(startingSquare, endingSquare, 0, FLAG_STANDARD);
+                moveSet.add(move);
             }
         }
     }
 
-    public void addPseudoLegalDoubleCapturesEast(Set<Short> moveSet, long startingPieces) {
-        final long emptySquares = getEmpty();
+    public void addPseudoLegalPawnCapturesEast(Set<Short> moveSet) {
+        // DON'T FORGET PROMOTION AND EN PASSANT!!!
         final long captureSquares = combinedBoards[turn ^ 1] | enPassantSquare;
-        final long backRank = getBackRank(turn ^ 1);
-        int offset = (turn == BLACK) ? -1 : 1;
-        long pawns = startingPieces;
-        pawns &= ((turn == BLACK) ? RANK_7 : RANK_2); // all pawns on starting square
-        pawns = n(pawns, offset) & emptySquares; // advance the pawns one square
-        pawns = n(pawns, offset) & emptySquares; // advance the pawns one square
-        long endingSquare = 0l;
-        long startingSquare = 0l;
+        int forward = (turn == BLACK) ? SOUTH : NORTH;
+        long promotionSquares = ((turn == BLACK) ? RANK_1 : RANK_8);
+        long doublePawns = pieceBoards[turn][PAWN]; // all friendly pawns
+        doublePawns = compass(doublePawns, forward, EAST) & captureSquares;
         short move = 0;
-        pawns = startingPieces;
-        pawns = n(pawns, offset);
-        pawns = w(pawns, 1) & captureSquares;
-        for (long file : FILES) { // this loop adds pawn captures towards the H-file
-            for (long rank : RANKS) {
-                endingSquare = file & rank & pawns;
-                if (endingSquare == 0) {
-                    continue;
-                }
-                startingSquare = s(endingSquare, offset);
-                startingSquare = e(startingSquare, 1);
-                if ((endingSquare & backRank) != 0) {
-                    for (int piece : PROMOTION_PIECES) {
-                        move = encodeMove(startingSquare, endingSquare, piece, FLAG_PROMOTION);
-                        moveSet.add(move);
-                    }
-                } else if (endingSquare == enPassantSquare) {
-                    move = encodeMove(startingSquare, endingSquare, 0, FLAG_EN_PASSANT);
-                    moveSet.add(move);
-                } else {
-                    move = encodeMove(startingSquare, endingSquare, 0, FLAG_STANDARD);
+        for (int endingOffset : serializeBitboard(doublePawns)) {
+            long endingSquare = getBitboard(endingOffset);
+            long startingSquare = compass(endingSquare, -forward, WEST);
+            if ((promotionSquares & endingSquare) != 0) {
+                for (int piece : PROMOTION_PIECES) {
+                    move = encodeMove(startingSquare, endingSquare, piece, FLAG_PROMOTION);
                     moveSet.add(move);
                 }
+            } else if (endingSquare == enPassantSquare) {
+                move = encodeMove(startingSquare, endingSquare, 0, FLAG_EN_PASSANT);
+                moveSet.add(move);
+            } else {
+                move = encodeMove(startingSquare, endingSquare, 0, FLAG_STANDARD);
+                moveSet.add(move);
             }
         }
     }
@@ -722,8 +721,11 @@ public class Chess {
         // also if a king just castled and a square it castled through is attacked,
         // including starting square, and
         // square = where the king is now, this will return true
-        if (((e(n(pieceBoards[turn][PAWN], (turn == BLACK) ? -1 : 1))
-                | w(n(pieceBoards[turn][PAWN], (turn == BLACK) ? -1 : 1))) & getEmpty() & square) != 0) {
+
+        if (((compass(pieceBoards[turn][PAWN], (turn == BLACK) ? SOUTH : NORTH, EAST)
+
+                | compass(pieceBoards[turn][PAWN], (turn == BLACK) ? SOUTH : NORTH, WEST)) & getEmpty()
+                & square) != 0) {
             return true;
         }
         long enemyKing = pieceBoards[turn ^ 1][KING];
@@ -896,7 +898,7 @@ public class Chess {
                 hash[getIndex(end)] = PIECE_CHARS_ASCII[startColor][promotion];
                 break;
             case FLAG_EN_PASSANT:
-                long captureSquare = Chess.s(end, end - start > 0 ? 1 : -1);
+                long captureSquare = Chess.compass(end, end - start > 0 ? SOUTH : NORTH,0);
                 hash[getIndex(start)] = ' ';
                 hash[getIndex(end)] = PIECE_CHARS_ASCII[turn][PAWN];
                 hash[getIndex(captureSquare)] = ' ';
@@ -1276,7 +1278,7 @@ public class Chess {
     }
 
     public static long getBitboard(int index) {
-        return 1l >> index;
+        return 1l << index;
     }
 
     private long perft(int depth) throws Exception {
@@ -1490,6 +1492,7 @@ public class Chess {
                         }
                     }
                 }
+                System.out.print("   │");
             }
         }
         System.out.print("\r\n                                ");
