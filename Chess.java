@@ -616,55 +616,28 @@ public class Chess {
         }
     }
 
+    public static final int[][] bishopDirections = { { NORTH, EAST }, { NORTH, WEST }, { SOUTH, EAST },
+            { SOUTH, WEST } };
+
     public void addPseudoLegalBishopMoves(Set<Short> moveSet, long startingPieces) {
         long bishops = startingPieces;
         final long enemies = combinedBoards[turn ^ 1];
         final long friends = combinedBoards[turn];
         final long enemiesOrFriends = enemies | friends;
-        for (long rank : RANKS) {
-            for (long file : FILES) {
-                long startingSquare = bishops & file & rank;
-                if (startingSquare == 0) {
-                    continue;
+        long destinationSquares = 0;
+        for (int startOffset : serializeBitboard(bishops)) {
+            long start = getBitboard(startOffset);
+            for (int[] dir : bishopDirections) {
+                destinationSquares = start;
+                long compass = compass(destinationSquares, dir[0], dir[1]);
+                while ((compass & enemiesOrFriends) == 0 && compass != 0) {
+                    destinationSquares |= compass;
+                    compass = compass(compass, dir[0], dir[1]);
                 }
-                long destinationSquare = ne(startingSquare);
-                while (destinationSquare != 0 && (destinationSquare & enemiesOrFriends) == 0) {
-                    short move = encodeMove(startingSquare, destinationSquare, 0, FLAG_STANDARD);
-                    moveSet.add(move);
-                    destinationSquare = ne(destinationSquare);
-                }
-                if ((destinationSquare & enemies) != 0) {
-                    short move = encodeMove(startingSquare, destinationSquare, 0, FLAG_STANDARD);
-                    moveSet.add(move);
-                }
-                destinationSquare = se(startingSquare);
-                while (destinationSquare != 0 && (destinationSquare & enemiesOrFriends) == 0) {
-                    short move = encodeMove(startingSquare, destinationSquare, 0, FLAG_STANDARD);
-                    moveSet.add(move);
-                    destinationSquare = se(destinationSquare);
-                }
-                if ((destinationSquare & enemies) != 0) {
-                    short move = encodeMove(startingSquare, destinationSquare, 0, FLAG_STANDARD);
-                    moveSet.add(move);
-                }
-                destinationSquare = nw(startingSquare);
-                while (destinationSquare != 0 && (destinationSquare & enemiesOrFriends) == 0) {
-                    short move = encodeMove(startingSquare, destinationSquare, 0, FLAG_STANDARD);
-                    moveSet.add(move);
-                    destinationSquare = nw(destinationSquare);
-                }
-                if ((destinationSquare & enemies) != 0) {
-                    short move = encodeMove(startingSquare, destinationSquare, 0, FLAG_STANDARD);
-                    moveSet.add(move);
-                }
-                destinationSquare = sw(startingSquare);
-                while (destinationSquare != 0 && (destinationSquare & enemiesOrFriends) == 0) {
-                    short move = encodeMove(startingSquare, destinationSquare, 0, FLAG_STANDARD);
-                    moveSet.add(move);
-                    destinationSquare = sw(destinationSquare);
-                }
-                if ((destinationSquare & enemies) != 0) {
-                    short move = encodeMove(startingSquare, destinationSquare, 0, FLAG_STANDARD);
+                destinationSquares |= (compass & enemies);
+                for (int endOffset : serializeBitboard(destinationSquares)) {
+                    long end = getBitboard(endOffset);
+                    short move = encodeMove(start, end, 0, FLAG_STANDARD);
                     moveSet.add(move);
                 }
             }
@@ -689,11 +662,11 @@ public class Chess {
 
     public void addPseudoLegalCastleMoves(Set<Short> moveSet, long startingPieces) {
         if (castleRights[turn][KINGSIDE] & (isEmpty(e(startingPieces) | e(e(startingPieces))))) {
-            moveSet.add(encodeMove(startingPieces, e(e(e(startingPieces))), QUEEN, FLAG_CASTLE));
+            moveSet.add(encodeMove(startingPieces, e(e(e(startingPieces))), 0, FLAG_CASTLE));
         }
         if (castleRights[turn][QUEENSIDE]
                 & (isEmpty(w(startingPieces) | w(w(startingPieces)) | w(w(w(startingPieces)))))) {
-            moveSet.add(encodeMove(startingPieces, w(w(w(w(startingPieces)))), QUEEN, FLAG_CASTLE));
+            moveSet.add(encodeMove(startingPieces, w(w(w(w(startingPieces)))), 0, FLAG_CASTLE));
         }
     }
 
@@ -898,7 +871,7 @@ public class Chess {
                 hash[getIndex(end)] = PIECE_CHARS_ASCII[startColor][promotion];
                 break;
             case FLAG_EN_PASSANT:
-                long captureSquare = Chess.compass(end, end - start > 0 ? SOUTH : NORTH,0);
+                long captureSquare = Chess.compass(end, end - start > 0 ? SOUTH : NORTH, 0);
                 hash[getIndex(start)] = ' ';
                 hash[getIndex(end)] = PIECE_CHARS_ASCII[turn][PAWN];
                 hash[getIndex(captureSquare)] = ' ';
