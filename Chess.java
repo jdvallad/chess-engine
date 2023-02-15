@@ -11,6 +11,7 @@ public class Chess {
     public static final int SOUTH = -1;
     public static final int EAST = 1;
     public static final int WEST = -1;
+    public static final int NONE = 0;
     public static final int QUEEN = 0;
     public static final int KNIGHT = 1;
     public static final int BISHOP = 2;
@@ -562,55 +563,22 @@ public class Chess {
     }
 
     public void addPseudoLegalRookMoves(Set<Short> moveSet, long startingPieces) {
-        long rooks = startingPieces;
         final long enemies = combinedBoards[turn ^ 1];
         final long friends = combinedBoards[turn];
         final long enemiesOrFriends = enemies | friends;
-        for (long rank : RANKS) {
-            for (long file : FILES) {
-                long startingSquare = rooks & file & rank;
-                if (startingSquare == 0) {
-                    continue;
+        long destinationSquares = 0;
+        long compass = 0;
+        for (int startOffset : serializeBitboard(startingPieces)) {
+            for (int[] dir : rookDirections) {
+                destinationSquares = 0;
+                compass = compass(getBitboard(startOffset), dir[0], dir[1]);
+                while ((compass & enemiesOrFriends) == 0 && compass != 0) {
+                    destinationSquares |= compass;
+                    compass = compass(compass, dir[0], dir[1]);
                 }
-                long destinationSquare = n(startingSquare);
-                while (destinationSquare != 0 && (destinationSquare & enemiesOrFriends) == 0) {
-                    short move = encodeMove(startingSquare, destinationSquare, 0, FLAG_STANDARD);
-                    moveSet.add(move);
-                    destinationSquare = n(destinationSquare);
-                }
-                if ((destinationSquare & enemies) != 0) {
-                    short move = encodeMove(startingSquare, destinationSquare, 0, FLAG_STANDARD);
-                    moveSet.add(move);
-                }
-                destinationSquare = s(startingSquare);
-                while (destinationSquare != 0 && (destinationSquare & enemiesOrFriends) == 0) {
-                    short move = encodeMove(startingSquare, destinationSquare, 0, FLAG_STANDARD);
-                    moveSet.add(move);
-                    destinationSquare = s(destinationSquare);
-                }
-                if ((destinationSquare & enemies) != 0) {
-                    short move = encodeMove(startingSquare, destinationSquare, 0, FLAG_STANDARD);
-                    moveSet.add(move);
-                }
-                destinationSquare = e(startingSquare);
-                while (destinationSquare != 0 && (destinationSquare & enemiesOrFriends) == 0) {
-                    short move = encodeMove(startingSquare, destinationSquare, 0, FLAG_STANDARD);
-                    moveSet.add(move);
-                    destinationSquare = e(destinationSquare);
-                }
-                if ((destinationSquare & enemies) != 0) {
-                    short move = encodeMove(startingSquare, destinationSquare, 0, FLAG_STANDARD);
-                    moveSet.add(move);
-                }
-                destinationSquare = w(startingSquare);
-                while (destinationSquare != 0 && (destinationSquare & enemiesOrFriends) == 0) {
-                    short move = encodeMove(startingSquare, destinationSquare, 0, FLAG_STANDARD);
-                    moveSet.add(move);
-                    destinationSquare = w(destinationSquare);
-                }
-                if ((destinationSquare & enemies) != 0) {
-                    short move = encodeMove(startingSquare, destinationSquare, 0, FLAG_STANDARD);
-                    moveSet.add(move);
+                destinationSquares |= (compass & enemies);
+                for (int endOffset : serializeBitboard(destinationSquares)) {
+                    moveSet.add(encodeMove(getBitboard(startOffset), getBitboard(endOffset), 0, FLAG_STANDARD));
                 }
             }
         }
@@ -618,27 +586,26 @@ public class Chess {
 
     public static final int[][] bishopDirections = { { NORTH, EAST }, { NORTH, WEST }, { SOUTH, EAST },
             { SOUTH, WEST } };
+    public static final int[][] rookDirections = { { NORTH, NONE }, { SOUTH, NONE }, { NONE, EAST },
+            { NONE, WEST } };
 
     public void addPseudoLegalBishopMoves(Set<Short> moveSet, long startingPieces) {
-        long bishops = startingPieces;
         final long enemies = combinedBoards[turn ^ 1];
         final long friends = combinedBoards[turn];
         final long enemiesOrFriends = enemies | friends;
         long destinationSquares = 0;
-        for (int startOffset : serializeBitboard(bishops)) {
-            long start = getBitboard(startOffset);
+        long compass = 0;
+        for (int startOffset : serializeBitboard(startingPieces)) {
             for (int[] dir : bishopDirections) {
-                destinationSquares = start;
-                long compass = compass(destinationSquares, dir[0], dir[1]);
+                destinationSquares = 0;
+                compass = compass(getBitboard(startOffset), dir[0], dir[1]);
                 while ((compass & enemiesOrFriends) == 0 && compass != 0) {
                     destinationSquares |= compass;
                     compass = compass(compass, dir[0], dir[1]);
                 }
                 destinationSquares |= (compass & enemies);
                 for (int endOffset : serializeBitboard(destinationSquares)) {
-                    long end = getBitboard(endOffset);
-                    short move = encodeMove(start, end, 0, FLAG_STANDARD);
-                    moveSet.add(move);
+                    moveSet.add(encodeMove(getBitboard(startOffset), getBitboard(endOffset), 0, FLAG_STANDARD));
                 }
             }
         }
