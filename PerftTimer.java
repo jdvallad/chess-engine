@@ -21,11 +21,13 @@ public class PerftTimer {
         game.setFromFen(testFen);
         // Lets time the method!
         long startTime = System.nanoTime();
-        game.perft(testDepth, false);
+        for (int i = 0; i < 10; i++) {
+            game.perft(testDepth);
+        }
         long endTime = System.nanoTime();
         // Lets print the duration to console!
         long duration = (endTime - startTime);
-        System.out.println("This took " + formatNanoIntoSeconds(duration) + " seconds.");
+        System.out.println("This took " + formatNanoIntoSeconds(duration / 10) + " seconds.");
     }
 
     public static String formatNanoIntoSeconds(long duration) {
