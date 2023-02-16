@@ -643,9 +643,9 @@ public class Chess {
         }
     }
 
-    public void addPseudoLegalSlidingMoves(Set<Short> moveSet, long startingPieces, byte[][][] rays) {
+    public void addPseudoLegalSlidingMoves(Set<Short> moveSet, long startingPieces, byte[][][] serializedRays) {
         for (byte start : serializeBitboard(startingPieces)) {
-            for (byte[][] direction : rays) {
+            for (byte[][] direction : serializedRays) {
                 for (byte end : direction[start]) {
                     long endBoard = getBitboard(end);
                     if ((endBoard & combinedBoards[turn]) != 0) {
