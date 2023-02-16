@@ -2,12 +2,8 @@
 public class Driver {
 
     public static void main(String[] args) throws Exception {
-        for (int i = 0; i < Chess.VERTICAL_OFFSETS.length; i++) {
-            if (i < 8) {
-                Chess.print(~Long.reverse(Chess.VERTICAL_OFFSETS[i]));
-            } else {
-                Chess.print(~Chess.VERTICAL_OFFSETS[i]);
-            }
-        }
+       Chess game = new Chess("r3k2r/Pppp1ppp/1b3nbN/nP6/BBP1P3/q4N2/Pp1P2PP/R2Q1RK1 w kq -");
+       System.out.println(game.perftMap(4));
+      //game.perft(3,true);
     }
 }
