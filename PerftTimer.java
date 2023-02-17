@@ -11,6 +11,7 @@ public class PerftTimer {
     // .563530948 seconds with perft startpos, depth 4
     // 10.98 seconds with perft densepos, depth 4
     // 10.52 seconds with pseduoPerft, depth 4
+    // .056118245 seconds depth 4
     public static void main(String[] args) throws Exception {
         String testFen = startpos;
         int testDepth = 4;
@@ -21,13 +22,13 @@ public class PerftTimer {
         game.setFromFen(testFen);
         // Lets time the method!
         long startTime = System.nanoTime();
-        for (int i = 0; i < 100; i++) {
+        for (int i = 0; i < 1000; i++) {
             game.perft(testDepth, false);
         }
         long endTime = System.nanoTime();
         // Lets print the duration to console!
         long duration = (endTime - startTime);
-        System.out.println("This took " + formatNanoIntoSeconds(duration / 100) + " seconds.");
+        System.out.println("This took " + formatNanoIntoSeconds(duration / 1000) + " seconds.");
     }
 
     public static String formatNanoIntoSeconds(long duration) {

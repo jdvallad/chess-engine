@@ -1,10 +1,10 @@
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.TreeMap;
 
 public class FastChess extends Chess {
     public int turn;
@@ -272,7 +272,7 @@ public class FastChess extends Chess {
     }
 
     public Map<String, Integer> perftMap(int depth) {
-        Map<String, Integer> map = new TreeMap<>();
+        Map<String, Integer> map = new HashMap<>();
         int[] nodes = { 0 };
         Set<Short> moves = getLegalShortMoves();
         if (depth == 1) {
