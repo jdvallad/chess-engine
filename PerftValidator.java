@@ -1,3 +1,8 @@
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+
 public class PerftValidator {
     public static String[] fens = {
             "r3k2r/Pppp1ppp/1b3nbN/nP6/BBP1P3/q4N2/Pp1P2PP/R2Q1RK1 w kq -",
@@ -26,9 +31,11 @@ public class PerftValidator {
     static int depth = 4;
 
     public static void main(String[] args) throws Exception {
+        Chess game = new FastChess();
+        Chess gold = new GoldChess();
         long startTime = System.nanoTime();
         for (int i = 0; i < fens.length; i++) {
-            if (Stockfish.bugExists(fens[i], depth)) {
+            if (bugExists(game, gold, fens[i], depth)) {
                 return;
             }
         }
@@ -45,5 +52,98 @@ public class PerftValidator {
             seconds.deleteCharAt(0);
         }
         return seconds.toString();
+    }
+
+    public static boolean bugExists(Chess game, Chess gold, String fen, int depth, String... moves) throws Exception {
+        game.setFromFen(fen);
+        gold.setFromFen(fen);
+        game.move(moves);
+        gold.move(moves);
+        Map<String, Integer> myMap = game.perftMap(depth);
+        Map<String, Integer> trueMap = gold.perftMap(depth);
+        if (myMap.get("total").equals(trueMap.get("total"))) {
+            System.out.println("Fen: " + fen);
+            if (moves.length > 0) {
+                System.out.print("Moves :");
+                for (String move : moves) {
+                    System.out.print(move + " ");
+                }
+                System.out.println();
+            }
+            System.out.println("Output matches.");
+            System.out.println();
+            return false;
+        } else {
+            List<String> moveList = new ArrayList<>();
+            for (String move : moves) {
+                moveList.add(move);
+            }
+            while (true) {
+                HashSet<String> sharedKeys = new HashSet<>(myMap.keySet());
+                sharedKeys.retainAll(trueMap.keySet());
+                String moveThatShouldBeLegal = "";
+                String moveThatShouldBeIllegal = "";
+                String moveWithoutMatch = "";
+                for (String key : myMap.keySet()) {
+                    if (!trueMap.keySet().contains(key)) {
+                        moveThatShouldBeIllegal = key;
+                        break;
+                    }
+                }
+                for (String key : trueMap.keySet()) {
+                    if (!myMap.keySet().contains(key)) {
+                        moveThatShouldBeLegal = key;
+                        break;
+                    }
+                }
+                for (String key : sharedKeys) {
+                    if (!trueMap.get(key).equals(myMap.get(key)) && !key.equals("total")) {
+                        moveWithoutMatch = key;
+                        break;
+                    }
+                }
+                if (moveThatShouldBeIllegal.length() > 0) {
+                    System.out.println("Fen: " + fen);
+                    if (moveList.size() > 0) {
+                        System.out.print("Moves :");
+                        for (String move : moveList) {
+                            System.out.print(move + " ");
+                        }
+                        System.out.println();
+                    }
+                    System.out.println(moveThatShouldBeIllegal + " should be illegal in this position.");
+                    game.printBoard(FastChess.WHITE);
+
+                    game.printLegalMoves();
+                    return true;
+                }
+                if (moveThatShouldBeLegal.length() > 0) {
+                    System.out.println("Fen: " + fen);
+                    if (moveList.size() > 0) {
+                        System.out.print("Moves :");
+                        for (String move : moveList) {
+                            System.out.print(move + " ");
+                        }
+                        System.out.println();
+                    }
+                    System.out.println(moveThatShouldBeLegal + " should be legal in this position.");
+                    game.printBoard(FastChess.WHITE);
+                    game.printLegalMoves();
+                    return true;
+                }
+                if (moveWithoutMatch.length() == 0) {
+                    throw new Exception("Something went wrong.");
+                }
+                moveList.add(moveWithoutMatch);
+                game.move(moveWithoutMatch);
+                gold.move(moveWithoutMatch);
+                depth--;
+                if (depth == 0) {
+                    throw new Exception("Something went wrong.");
+                }
+                myMap = game.perftMap(depth);
+                trueMap = gold.perftMap(depth);
+            }
+        }
     }
 }

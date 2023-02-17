@@ -4,33 +4,20 @@ import java.util.Set;
 
 public class ChessInTerminal {
     public static void main(String[] args) throws Exception {
-        boolean flip = false;
-        boolean ascii = true;
-        Chess game = new Chess();
+        FastChess game = new FastChess();
+        int perspective = FastChess.WHITE;
         System.out.println("\033c");
-        game.print(ascii, flip);
+        game.printBoard(perspective);
         game.printLegalMoves();
         Scanner input = new Scanner(System.in);
         String move = "";
         while (true) {
             move = input.next().toLowerCase();
             switch (move) {
-                case "ascii":
-                    ascii = true;
-                    System.out.println("\033c");
-                    game.print(ascii, flip);
-                    game.printLegalMoves();
-                    break;
-                case "unicode":
-                    ascii = false;
-                    System.out.println("\033c");
-                    game.print(ascii, flip);
-                    game.printLegalMoves();
-                    break;
                 case "flip":
-                    flip = !flip;
+                    perspective ^=1;
                     System.out.println("\033c");
-                    game.print(ascii, flip);
+                    game.printBoard(perspective);
                     game.printLegalMoves();
                     break;
                 case "quit":
@@ -40,17 +27,15 @@ public class ChessInTerminal {
                     input.close();
                     return;
                 case "undo":
-                    if (game.reversibleMoves.size() >= 1) {
                         game.undo();
                         System.out.println("\033c");
-                        game.print(ascii, flip);
+                        game.printBoard(perspective);
                         game.printLegalMoves();
-                    }
                     break;
                 case "random":
-                    game.move(getRandomSetElement(game.legalMoves));
+                    game.move(getRandomSetElement(game.getLegalMoves()));
                     System.out.println("\033c");
-                    game.print(ascii, flip);
+                    game.printBoard(perspective);
                     game.printLegalMoves();
                     if (game.gameOver) {
                         System.out.println("Game over.");
@@ -59,10 +44,10 @@ public class ChessInTerminal {
                     }
                     break;
                 default:
-                    if (game.isLegalMove(move)) {
+                    if (game.legalMoves.contains(move)) {
                         game.move(move);
                         System.out.println("\033c");
-                        game.print(ascii, flip);
+                        game.printBoard(perspective);
                         game.printLegalMoves();
                         if (game.gameOver) {
                             System.out.println("Game over.");

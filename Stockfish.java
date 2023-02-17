@@ -2,9 +2,6 @@ import java.io.BufferedWriter;
 import java.io.OutputStream;
 import java.io.OutputStreamWriter;
 import java.lang.ProcessBuilder.Redirect;
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.List;
 import java.util.Map;
 import java.util.Scanner;
 import java.util.TreeMap;
@@ -34,8 +31,8 @@ public class Stockfish {
         scan.close();
     }
 
-    public static long perft(String fen, int depth, boolean verbose, String... moves) throws Exception {
-        Map<String, Long> map = perftMap(fen, depth, moves);
+    public static int perft(String fen, int depth, boolean verbose, String... moves) throws Exception {
+        Map<String, Integer> map = perftMap(fen, depth, moves);
         if (verbose) {
             for (String key : map.keySet()) {
                 System.out.println(key + ": " + map.get(key));
@@ -44,8 +41,8 @@ public class Stockfish {
         return map.get("total");
     }
 
-    public static Map<String, Long> perftMap(String fen, int depth, String... moves) throws Exception {
-        Map<String, Long> map = new TreeMap<>();
+    public static Map<String, Integer> perftMap(String fen, int depth, String... moves) throws Exception {
+        Map<String, Integer> map = new TreeMap<>();
         ProcessBuilder builder = new ProcessBuilder(executablePath);
         Process process = builder.start();
         OutputStream stdin = process.getOutputStream();
@@ -72,100 +69,9 @@ public class Stockfish {
             if (pair[0].equals("Nodes searched")) {
                 pair[0] = "total";
             }
-            map.put(pair[0], Long.parseLong(pair[1]));
+            map.put(pair[0], Integer.parseInt(pair[1]));
         }
         return map;
     }
 
-    public static boolean bugExists(String fen, int depth, String... moves) throws Exception {
-        Chess game = new Chess(fen);
-        for (String move : moves) {
-            game.move(move);
-        }
-        Map<String, Long> myMap = game.perftMap(depth);
-        Map<String, Long> trueMap = Stockfish.perftMap(fen, depth, moves);
-        if (myMap.get("total").equals(trueMap.get("total"))) {
-            System.out.println("Fen: " + fen);
-            if (moves.length > 0) {
-                System.out.print("Moves :");
-                for (String move : moves) {
-                    System.out.print(move + " ");
-                }
-                System.out.println();
-            }
-            System.out.println("Output matches.");
-            System.out.println();
-            return false;
-        } else {
-            List<String> moveList = new ArrayList<>();
-            for (String move : moves) {
-                moveList.add(move);
-            }
-            while (true) {
-                HashSet<String> sharedKeys = new HashSet<>(myMap.keySet());
-                sharedKeys.retainAll(trueMap.keySet());
-                String moveThatShouldBeLegal = "";
-                String moveThatShouldBeIllegal = "";
-                String moveWithoutMatch = "";
-                for (String key : myMap.keySet()) {
-                    if (!trueMap.keySet().contains(key)) {
-                        moveThatShouldBeIllegal = key;
-                        break;
-                    }
-                }
-                for (String key : trueMap.keySet()) {
-                    if (!myMap.keySet().contains(key)) {
-                        moveThatShouldBeLegal = key;
-                        break;
-                    }
-                }
-                for (String key : sharedKeys) {
-                    if (!trueMap.get(key).equals(myMap.get(key)) && !key.equals("total")) {
-                        moveWithoutMatch = key;
-                        break;
-                    }
-                }
-                if (moveThatShouldBeIllegal.length() > 0) {
-                    System.out.println("Fen: " + fen);
-                    if (moveList.size() > 0) {
-                        System.out.print("Moves :");
-                        for (String move : moveList) {
-                            System.out.print(move + " ");
-                        }
-                        System.out.println();
-                    }
-                    System.out.println(moveThatShouldBeIllegal + " should be illegal in this position.");
-                    game.print();
-
-                    game.printLegalMoves();
-                    return true;
-                }
-                if (moveThatShouldBeLegal.length() > 0) {
-                    System.out.println("Fen: " + fen);
-                    if (moveList.size() > 0) {
-                        System.out.print("Moves :");
-                        for (String move : moveList) {
-                            System.out.print(move + " ");
-                        }
-                        System.out.println();
-                    }
-                    System.out.println(moveThatShouldBeLegal + " should be legal in this position.");
-                    game.print();
-                    game.printLegalMoves();
-                    return true;
-                }
-                if (moveWithoutMatch.length() == 0) {
-                    throw new Exception("Something went wrong.");
-                }
-                moveList.add(moveWithoutMatch);
-                game.move(moveWithoutMatch);
-                depth--;
-                if (depth == 0) {
-                    throw new Exception("Something went wrong.");
-                }
-                myMap = game.perftMap(depth);
-                trueMap = Stockfish.perftMap(game.getFen(), depth, moveList.toArray(String[]::new));
-            }
-        }
-    }
 }

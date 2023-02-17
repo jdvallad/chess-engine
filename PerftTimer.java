@@ -17,7 +17,7 @@ public class PerftTimer {
         System.out.println("Timing with:");
         System.out.println("Fen: " + testFen);
         System.out.println("Depth: " + testDepth);
-        Chess game = new Chess();
+        FastChess game = new FastChess();
         game.setFromFen(testFen);
         // Lets time the method!
         long startTime = System.nanoTime();
