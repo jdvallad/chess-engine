@@ -2,9 +2,16 @@ import java.util.Map;
 import java.util.Set;
 
 public abstract class Chess {
-
+    public static final int WHITE = 0;
+    public static final int BLACK = 1;
     boolean gameOver;
     Set<String> legalMoves;
+    public String gameResult;
+    public int turn;
+
+    public abstract String getLastMove();
+
+    public abstract boolean inCheck();
 
     public abstract Chess clone();
 
@@ -33,4 +40,6 @@ public abstract class Chess {
     public abstract void printEntireGame();
 
     public abstract void printLegalMoves();
+
+    public abstract void reset();
 }

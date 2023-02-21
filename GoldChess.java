@@ -1,26 +1,23 @@
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.TreeMap;
 
-public class GoldChess extends Chess {
-    int turn;
-    long[][] pieceBoards;
-    long[] combinedBoards;
-    boolean[][] castleRights;
-    long enPassantSquare;
-    int halfMoveCount;
-    int fullMoveCount;
-    Set<Short> legalMoves;
-    List<Set<Short>> pseudoLegalMoves;
-    List<Long> reversibleMoves;
-    List<String> hashList;
-    boolean gameOver;
-    char[] hash;
-
+public class GoldChess extends Chess{
+    private Set<Short> legalShortMoves;
+    private long[][] pieceBoards;
+    private long[] combinedBoards;
+    private boolean[][] castleRights;
+    private long enPassantSquare;
+    private int halfMoveCount;
+    public int fullMoveCount;
+    private List<Set<Short>> pseudoLegalMoves;
+    private List<Long> reversibleMoves;
+    public List<String> hashList;
+    public char[] hash;
     // Super Class methods
 
     public GoldChess(String fen) {
@@ -29,6 +26,7 @@ public class GoldChess extends Chess {
     }
 
     public GoldChess() {
+        gameResult = "";
         hash = new char[HASH_SIZE];
         turn = WHITE;
         gameOver = false;
@@ -36,6 +34,7 @@ public class GoldChess extends Chess {
         halfMoveCount = 0;
         fullMoveCount = 1;
         reversibleMoves = new ArrayList<>();
+        legalShortMoves = new HashSet<>();
         legalMoves = new HashSet<>();
         hashList = new ArrayList<>();
         pseudoLegalMoves = new ArrayList<>();
@@ -54,7 +53,7 @@ public class GoldChess extends Chess {
         }
         setHash();
         hashList.add(new String(hash));
-        getLegalShortMoves(legalMoves);
+        getLegalShortMoves(legalShortMoves);
     }
 
     public GoldChess clone() {
@@ -71,6 +70,7 @@ public class GoldChess extends Chess {
         output.halfMoveCount = this.halfMoveCount;
         output.fullMoveCount = this.fullMoveCount;
         output.legalMoves = new HashSet<>(this.legalMoves);
+        output.legalShortMoves = new HashSet<>(this.legalShortMoves);
         output.pseudoLegalMoves = new ArrayList<>();
         output.pseudoLegalMoves.add(new HashSet<>(this.pseudoLegalMoves.get(0)));
         output.pseudoLegalMoves.add(new HashSet<>(this.pseudoLegalMoves.get(1)));
@@ -82,6 +82,7 @@ public class GoldChess extends Chess {
     }
 
     public GoldChess setFromFen(String fen) {
+        gameResult = "";
         fen = fen.trim();
         int fileIndex = 0;
         int stringIndex = 0;
@@ -160,7 +161,7 @@ public class GoldChess extends Chess {
         hashList.clear();
         setHash();
         hashList.add(new String(hash));
-        getLegalShortMoves(legalMoves);
+        getLegalShortMoves(legalShortMoves);
         if (isValidBoardState()) {
             return this;
         } else {
@@ -177,7 +178,7 @@ public class GoldChess extends Chess {
                 int color = getColor(rank & file);
                 if (piece == NONE_PIECE) {
                     count++;
-                    if (count == FILES.length) {
+                    if ((file & H_FILE) != 0) {
                         build.append(count);
                         count = 0;
                     }
@@ -229,7 +230,7 @@ public class GoldChess extends Chess {
     }
 
     public GoldChess move(String moveString) {
-        for (short move : legalMoves) {
+        for (short move : legalShortMoves) {
             if (getMoveString(move).equals(moveString)) {
                 move(move);
                 return this;
@@ -246,8 +247,11 @@ public class GoldChess extends Chess {
     }
 
     public GoldChess undo() {
+        if (this.reversibleMoves.size() == 0) {
+            return this;
+        }
         undoNoUpdate();
-        getLegalShortMoves(legalMoves);
+        getLegalShortMoves(legalShortMoves);
         return this;
     }
 
@@ -256,15 +260,15 @@ public class GoldChess extends Chess {
     }
 
     public Set<String> getLegalMoves(Set<String> output) {
-        getLegalShortMoves(legalMoves);
-        for (short move : legalMoves) {
+        getLegalShortMoves(legalShortMoves);
+        for (short move : legalShortMoves) {
             output.add(getMoveString(move));
         }
         return output;
     }
 
     public Map<String, Integer> perftMap(int depth) {
-        Map<String, Integer> map = new TreeMap<>();
+        Map<String, Integer> map = new HashMap<>();
         int[] nodes = { 0 };
         Set<Short> moves = getLegalShortMoves();
         if (depth == 1) {
@@ -324,15 +328,6 @@ public class GoldChess extends Chess {
         return nodes;
     }
 
-    public boolean isLegalMove(String move) {
-        for (short moveShort : legalMoves) {
-            if (getMoveString(moveShort).equals(move)) {
-                return true;
-            }
-        }
-        return false;
-    }
-
     public void printBoard(int perspective) {
         boolean flag = false;
         System.out.print("                                ");
@@ -375,6 +370,9 @@ public class GoldChess extends Chess {
                     }
                 }
                 System.out.print("   │");
+                if (file == (perspective == BLACK ? A_FILE : H_FILE)) {
+                    System.out.print(" " + (1 + getRankIndex(rank & file)));
+                }
             }
         }
         System.out.print("\r\n                                ");
@@ -385,23 +383,29 @@ public class GoldChess extends Chess {
 
     public void printEntireGame() {
         System.out.print("[");
-        for (long move : reversibleMoves) {
-            System.out.print(getMoveStringReversible(move) + ",");
-        }
-        System.out.println("]");
-        this.printBoard(WHITE);
-    }
-
-    public void printLegalMoves() {
-        getLegalShortMoves(legalMoves);
-        System.out.print("[");
         boolean flag = false;
-        for (short move : legalMoves) {
+        for (long move : reversibleMoves) {
             if (flag) {
                 System.out.print(", ");
             }
             flag = true;
-            System.out.print(getMoveString(move) + "");
+            System.out.print(getMoveStringReversible(move) + "");
+        }
+        System.out.println("]");
+        this.printBoard(WHITE);
+        System.out.println(gameResult);
+    }
+
+    public void printLegalMoves() {
+        getLegalShortMoves(legalShortMoves);
+        System.out.print("[");
+        boolean flag = false;
+        for (String move : legalMoves) {
+            if (flag) {
+                System.out.print(", ");
+            }
+            flag = true;
+            System.out.print(move + "");
         }
 
         System.out.println("]");
@@ -422,6 +426,31 @@ public class GoldChess extends Chess {
         System.out.println("]");
     }
 
+    public void reset(){
+        while(reversibleMoves.size() > 0){
+            undo();
+        }
+    }
+
+    public String getLastMove(){
+        if(reversibleMoves.size() == 0){
+            return "";
+        }
+        return getMoveStringReversible(reversibleMoves.get(reversibleMoves.size() - 1));
+    }
+    public static void print(long input) {
+        for (long i = 63; i >= 0; i--) {
+            if (i % 8 == 7) {
+                System.out.println();
+            }
+            long index = 8 * (i / 8) + (7 - (i % 8));
+            System.out.print(" " + ((input >>> index) & 1l));
+        }
+        System.out.println();
+        System.out.println();
+
+    }
+
     // Helper Methods
 
     private GoldChess(boolean empty) {
@@ -430,7 +459,7 @@ public class GoldChess extends Chess {
 
     private GoldChess move(short move) {
         moveNoUpdate(move);
-        getLegalShortMoves(legalMoves);
+        getLegalShortMoves(legalShortMoves);
         return this;
     }
 
@@ -551,6 +580,9 @@ public class GoldChess extends Chess {
     }
 
     private GoldChess undoNoUpdate() {
+        if (reversibleMoves.size() == 0) {
+            return this;
+        }
         // castleRights (4 bits)
         halfMoveCount = 0; // (32 bits)
         int flag = 0; // (2 bits)
@@ -666,8 +698,13 @@ public class GoldChess extends Chess {
 
         }
         turn ^= 1;
+        if(turn == BLACK){
+            fullMoveCount--;
+        }
         this.gameOver = false;
-        hash = hashList.remove(hashList.size() - 1).toCharArray();
+        this.gameResult = "";
+        hashList.remove(hashList.size() - 1);
+        hash = hashList.get(hashList.size() - 1).toCharArray();
         return this;
     }
 
@@ -677,15 +714,18 @@ public class GoldChess extends Chess {
 
     private Set<Short> getLegalShortMoves(Set<Short> output) {
         output.clear();
+        legalMoves.clear();
         if (gameOver) {
             return output;
         }
         if (Collections.frequency(hashList, hashList.get(hashList.size() - 1)) == 5) {
             gameOver = true; // 5 fold repetition
+            gameResult = "draw by 5-fold repetition!";
             return output;
         }
         if (halfMoveCount == 75) {
             gameOver = true;
+            gameResult = "draw by 50 move rule!";
             return output;
         }
         getPseudoLegalMoves(pseudoLegalMoves.get(turn));
@@ -694,11 +734,17 @@ public class GoldChess extends Chess {
             getPseudoLegalMoves(pseudoLegalMoves.get(turn));
             if (!enemyInCheck()) {
                 output.add(move);
+                legalMoves.add(getMoveString(move));
             }
             undoNoUpdate();
         }
-        if (legalMoves.size() == 0) {
+        if (output.size() == 0) {
             gameOver = true;
+            if (inCheck()) {
+                gameResult = (turn == WHITE ? "black" : "white") + " wins!";
+            } else {
+                gameResult = "draw by stalemate!";
+            }
         }
         return output;
     }
@@ -854,6 +900,14 @@ public class GoldChess extends Chess {
         return enemySquareAttacked(pieceBoards[turn ^ 1][KING]);
     }
 
+    public boolean inCheck() {
+        turn ^= 1;
+        getPseudoLegalMoves(pseudoLegalMoves.get(turn));
+        boolean result = enemySquareAttacked(pieceBoards[turn ^ 1][KING]);
+        turn ^= 1;
+        return result;
+    }
+
     private boolean enemySquareAttacked(long square) { // Returns true if one of your pieces is attacking a square
         // In the case of pawns, only considers diagonal attacks.
         // also if a king just castled and a square it castled through is attacked,
@@ -998,7 +1052,7 @@ public class GoldChess extends Chess {
 
     private void setHash() {
         int index = 0;
-        for (; index < 64; index++) {
+        while (index < 64) {
             long square = FILES[index % 8] & RANKS[index / 8];
             hash[index] = PIECE_CHARS_ASCII[getColor(square)][getPiece(square)]; // 0-63
             index++;
@@ -1059,7 +1113,7 @@ public class GoldChess extends Chess {
                 hash[getIndex(helperEndSquare)] = PIECE_CHARS_ASCII[startColor][ROOK];
                 break;
             case FLAG_STANDARD:
-                int startPiece = getPiece(start);
+                int startPiece = getPiece(end);
                 hash[getIndex(start)] = ' ';
                 hash[getIndex(end)] = PIECE_CHARS_ASCII[startColor][startPiece];
                 break;
@@ -1248,13 +1302,13 @@ public class GoldChess extends Chess {
         return Character.isUpperCase(c) ? WHITE : BLACK;
     }
 
-    private String getMoveStringReversible(long input) {
+    private String getMoveStringReversible(long temp) {
         int endingSquareOffset = 0;
         int startingSquareOffset = 0;
         long endingSquare = 0l;
         long startingSquare = 0l;
         long push = 0;
-
+        long input = temp;
         input = (input >>> 48);
         push = 1l << 5;
         while (push != 0) {
@@ -1262,7 +1316,7 @@ public class GoldChess extends Chess {
             push = (push >>> 1);
         }
         endingSquare = 1L << endingSquareOffset;
-        input = (input >>> 10);
+        input = (temp >>> 57);
         push = 1l << 5;
         while (push != 0) {
             startingSquareOffset |= push & input;
@@ -1299,12 +1353,6 @@ public class GoldChess extends Chess {
         return 1l << index;
     }
 
-    public static Map<String, Integer> perftMap(String fen, int depth, String... moves) {
-        GoldChess game = new GoldChess(fen);
-        game.move(moves);
-        return game.perftMap(depth);
-    }
-
     private static long compassLong(long input, int north, int east) {
         input = input & VERTICAL_OFFSETS[north + 8] & HORIZONTAL_OFFSETS[east + 8];
         input = north >= 0 ? input << (north * 8) : input >>> -(north * 8);
@@ -1328,8 +1376,6 @@ public class GoldChess extends Chess {
     public static final int KING = 4;
     public static final int PAWN = 5;
     public static final int NONE_PIECE = 6;
-    public static final int WHITE = 0;
-    public static final int BLACK = 1;
     public static final int QUEENSIDE = 0;
     public static final int KINGSIDE = 1;
     public static final long A_FILE = 72340172838076673l;

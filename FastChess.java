@@ -6,21 +6,17 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-public class FastChess extends Chess {
-    public int turn;
+public class FastChess extends Chess{
     private Set<Short> legalShortMoves;
-    public Set<String> legalMoves;
-    public boolean gameOver;
     private long[][] pieceBoards;
     private long[] combinedBoards;
     private boolean[][] castleRights;
     private long enPassantSquare;
     private int halfMoveCount;
-    private int fullMoveCount;
+    public int fullMoveCount;
     private List<Set<Short>> pseudoLegalMoves;
     private List<Long> reversibleMoves;
     public List<String> hashList;
-    public String gameResult;
     public char[] hash;
     // Super Class methods
 
@@ -182,7 +178,7 @@ public class FastChess extends Chess {
                 int color = getColor(rank & file);
                 if (piece == NONE_PIECE) {
                     count++;
-                    if (count == FILES.length) {
+                    if ((file & H_FILE) != 0) {
                         build.append(count);
                         count = 0;
                     }
@@ -430,6 +426,18 @@ public class FastChess extends Chess {
         System.out.println("]");
     }
 
+    public void reset(){
+        while(reversibleMoves.size() > 0){
+            undo();
+        }
+    }
+
+    public String getLastMove(){
+        if(reversibleMoves.size() == 0){
+            return "";
+        }
+        return getMoveStringReversible(reversibleMoves.get(reversibleMoves.size() - 1));
+    }
     public static void print(long input) {
         for (long i = 63; i >= 0; i--) {
             if (i % 8 == 7) {
@@ -690,6 +698,9 @@ public class FastChess extends Chess {
 
         }
         turn ^= 1;
+        if(turn == BLACK){
+            fullMoveCount--;
+        }
         this.gameOver = false;
         this.gameResult = "";
         hashList.remove(hashList.size() - 1);
@@ -709,12 +720,12 @@ public class FastChess extends Chess {
         }
         if (Collections.frequency(hashList, hashList.get(hashList.size() - 1)) == 5) {
             gameOver = true; // 5 fold repetition
-            gameResult = "Draw by 5-fold Repetition.";
+            gameResult = "draw by 5-fold repetition!";
             return output;
         }
         if (halfMoveCount == 75) {
             gameOver = true;
-            gameResult = "Draw by 75 move rule.";
+            gameResult = "draw by 50 move rule!";
             return output;
         }
         getPseudoLegalMoves(pseudoLegalMoves.get(turn));
@@ -730,9 +741,9 @@ public class FastChess extends Chess {
         if (output.size() == 0) {
             gameOver = true;
             if (inCheck()) {
-                gameResult = (turn == WHITE ? "Black" : "White") + " wins by checkmate.";
+                gameResult = (turn == WHITE ? "black" : "white") + " wins!";
             } else {
-                gameResult = "Game over by stalemate.";
+                gameResult = "draw by stalemate!";
             }
         }
         return output;
@@ -889,9 +900,9 @@ public class FastChess extends Chess {
         return enemySquareAttacked(pieceBoards[turn ^ 1][KING]);
     }
 
-    private boolean inCheck() {
+    public boolean inCheck() {
         turn ^= 1;
-        getPseudoLegalMoves(legalShortMoves);
+        getPseudoLegalMoves(pseudoLegalMoves.get(turn));
         boolean result = enemySquareAttacked(pieceBoards[turn ^ 1][KING]);
         turn ^= 1;
         return result;
@@ -1365,8 +1376,6 @@ public class FastChess extends Chess {
     public static final int KING = 4;
     public static final int PAWN = 5;
     public static final int NONE_PIECE = 6;
-    public static final int WHITE = 0;
-    public static final int BLACK = 1;
     public static final int QUEENSIDE = 0;
     public static final int KINGSIDE = 1;
     public static final long A_FILE = 72340172838076673l;
